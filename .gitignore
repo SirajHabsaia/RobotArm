@@ -1,0 +1,66 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions / binaries
+*.so
+*.pyd
+*.dll
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+
+# Logs & runtime files
+*.log
+*.pid
+*.lock
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code and PlatformIO
+.vscode/
+.pio/
+.history/
+include/
+lib/
+test/
+platformio.ini
+
+# cad for gui
+*.step
+
+# ai model
+*.pth
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Other
+AI/data/
+*.jpg
+*.png
+*.mp4
+!GUI/**/*.png
+!GUI/**/*.jpg

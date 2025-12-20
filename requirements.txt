@@ -1,0 +1,16 @@
+numpy==2.2.6
+cadquery-ocp==7.8.1.1.post1
+shapely==2.1.2
+trimesh==4.10.0
+scipy==1.15.3
+PySide6==6.10.0
+vtk==9.3.1
+matplotlib==3.10.6
+torch==2.9.1
+torchvision==0.24.1
+opencv-python==4.12.0.88
+opencv-contrib-python==4.12.0.88
+Pillow==11.3.0
+tqdm==4.67.1
+pyserial==3.5
+chess==1.11.2

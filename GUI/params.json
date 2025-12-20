@@ -1,0 +1,27 @@
+{
+    "xdef": 200,
+    "ydef": 0,
+    "zdef": 0,
+
+    "zmin": -100,
+    "zmax": 100,
+    
+    "mumin": -90,
+    "mumax": 30,
+    "mudef": 0,
+
+    "Rmin": 150,
+    "Rmax": 350,
+
+    "thetamin": 0,
+    "thetamax": 360,
+
+    "alphamin": -17,
+    "alphamax": 90,
+
+    "betamin": -30,
+    "betamax": 90,
+
+    "gammamin": 60,
+    "gammamax": 300
+}

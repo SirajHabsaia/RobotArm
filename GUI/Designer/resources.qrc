@@ -1,0 +1,30 @@
+<RCC>
+  <qresource>
+    <file>images/media/backward.png</file>
+    <file>images/media/forward.png</file>
+    <file>images/media/import.png</file>
+    <file>images/media/minus.png</file>
+    <file>images/media/pause2.png</file>
+    <file>images/media/play2.png</file>
+    <file>images/media/plus.png</file>
+    <file>images/media/stop2.png</file>
+    <file>images/sidebar/chess.png</file>
+    <file>images/sidebar/draw.png</file>
+    <file>images/sidebar/github_white.png</file>
+    <file>images/sidebar/home_white.png</file>
+    <file>images/sidebar/icon.png</file>
+    <file>images/sidebar/manip.png</file>
+    <file>images/sidebar/program.png</file>
+    <file>images/sidebar/settings_white.png</file>
+    <file>images/close.png</file>
+    <file>images/maximize.png</file>
+    <file>images/menu.png</file>
+    <file>images/minimize.png</file>
+    <file>images/render.png</file>
+    <file>images/send.png</file>
+    <file>images/send_hover.png</file>
+    <file>images/send_press.png</file>
+    <file>images/home/emines.png</file>
+    <file>images/home/um6p.png</file>
+  </qresource>
+</RCC>
