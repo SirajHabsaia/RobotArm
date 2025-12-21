@@ -44,6 +44,7 @@ include/
 lib/
 test/
 platformio.ini
+Arduino/**/*.gitignore
 
 # cad for gui
 *.step

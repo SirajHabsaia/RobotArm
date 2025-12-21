@@ -10,6 +10,10 @@
     "mumax": 30,
     "mudef": 0,
 
+    "grippermin": 0,
+    "grippermax": 180,
+    "gripperdef": 90,
+
     "Rmin": 150,
     "Rmax": 350,
 

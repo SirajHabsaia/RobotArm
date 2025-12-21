@@ -281,12 +281,6 @@ class RobotVTKWidget(QWidget):
     This widget contains only the 3D viewer without controls.
     Can be embedded in other UIs or used standalone."""
     
-    # Camera parameters - adjust these values after finding the perfect view
-    # CAMERA_POSITION = [500.0, 300.0, 400.0]  # X, Y, Z position
-    # CAMERA_FOCAL_POINT = [0.0, 150.0, 0.0]   # What the camera is looking at
-    # CAMERA_VIEW_UP = [0.0, 1.0, 0.0]         # Up direction
-    # CAMERA_ZOOM = 1.0                         # Zoom factor
-    
     CAMERA_POSITION = [854.7, 472.8, 1039.5]
     CAMERA_FOCAL_POINT = [16.6, 268.2, 35.0]
     CAMERA_VIEW_UP = [-0.108724, 0.987913, -0.110486]

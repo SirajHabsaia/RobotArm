@@ -155,7 +155,7 @@ class Ui_MainWindow(object):
         self.GithubBtn1.setMinimumSize(QSize(40, 40))
         self.GithubBtn1.setMaximumSize(QSize(100, 40))
         icon5 = QIcon()
-        icon5.addFile(u":/images/github_white.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        icon5.addFile(u":/images/sidebar/github_white.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.GithubBtn1.setIcon(icon5)
         self.GithubBtn1.setIconSize(QSize(30, 30))
 
@@ -1244,10 +1244,8 @@ class Ui_MainWindow(object):
 "QWidget{\n"
 "	background-color: transparent;\n"
 "}")
-        self.verticalLayout_11 = QVBoxLayout(self.programWidget)
-        self.verticalLayout_11.setSpacing(6)
-        self.verticalLayout_11.setObjectName(u"verticalLayout_11")
-        self.verticalLayout_11.setContentsMargins(4, 6, 4, 4)
+        self.verticalLayout_16 = QVBoxLayout(self.programWidget)
+        self.verticalLayout_16.setObjectName(u"verticalLayout_16")
         self.modeWidget = QWidget(self.programWidget)
         self.modeWidget.setObjectName(u"modeWidget")
         self.modeWidget.setMinimumSize(QSize(0, 25))
@@ -1324,7 +1322,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_12.addWidget(self.execBtn)
 
 
-        self.verticalLayout_11.addWidget(self.modeWidget)
+        self.verticalLayout_16.addWidget(self.modeWidget)
 
         self.label_16 = QLabel(self.programWidget)
         self.label_16.setObjectName(u"label_16")
@@ -1339,22 +1337,30 @@ class Ui_MainWindow(object):
 "")
         self.label_16.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout_11.addWidget(self.label_16)
+        self.verticalLayout_16.addWidget(self.label_16)
 
-        self.xyzControlLayout = QHBoxLayout()
-        self.xyzControlLayout.setObjectName(u"xyzControlLayout")
-        self.xyzControlLayout.setContentsMargins(2, -1, 2, -1)
+        self.verticalLayout_12 = QVBoxLayout()
+        self.verticalLayout_12.setSpacing(2)
+        self.verticalLayout_12.setObjectName(u"verticalLayout_12")
+        self.horizontalLayout_18 = QHBoxLayout()
+        self.horizontalLayout_18.setObjectName(u"horizontalLayout_18")
         self.xyControl = QWidget(self.programWidget)
         self.xyControl.setObjectName(u"xyControl")
         self.xyControl.setMinimumSize(QSize(160, 160))
         self.xyControl.setMaximumSize(QSize(160, 160))
         self.xyControl.setStyleSheet(u"background-color: rgb(80, 80, 80);")
 
-        self.xyzControlLayout.addWidget(self.xyControl)
+        self.horizontalLayout_18.addWidget(self.xyControl)
 
-        self.zControlLayout = QVBoxLayout()
-        self.zControlLayout.setObjectName(u"zControlLayout")
-        self.zLineEditProgram = QLineEdit(self.programWidget)
+        self.zControlWidget = QWidget(self.programWidget)
+        self.zControlWidget.setObjectName(u"zControlWidget")
+        self.zControlWidget.setMinimumSize(QSize(35, 0))
+        self.zControlWidget.setMaximumSize(QSize(35, 16777215))
+        self.zControlWidget.setStyleSheet(u"")
+        self.verticalLayout_11 = QVBoxLayout(self.zControlWidget)
+        self.verticalLayout_11.setObjectName(u"verticalLayout_11")
+        self.verticalLayout_11.setContentsMargins(0, 0, 0, 0)
+        self.zLineEditProgram = QLineEdit(self.zControlWidget)
         self.zLineEditProgram.setObjectName(u"zLineEditProgram")
         self.zLineEditProgram.setStyleSheet(u"QLineEdit{\n"
 "	color: white;\n"
@@ -1363,41 +1369,120 @@ class Ui_MainWindow(object):
 "	border: 1px solid gray;\n"
 "}")
 
-        self.zControlLayout.addWidget(self.zLineEditProgram)
+        self.verticalLayout_11.addWidget(self.zLineEditProgram)
 
-        self.horizontalLayout_16 = QHBoxLayout()
-        self.horizontalLayout_16.setSpacing(0)
-        self.horizontalLayout_16.setObjectName(u"horizontalLayout_16")
+        self.horizontalLayout_15 = QHBoxLayout()
+        self.horizontalLayout_15.setObjectName(u"horizontalLayout_15")
         self.horizontalSpacer_9 = QSpacerItem(13, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.horizontalLayout_16.addItem(self.horizontalSpacer_9)
+        self.horizontalLayout_15.addItem(self.horizontalSpacer_9)
 
-        self.zSliderProgram = QSlider(self.programWidget)
+        self.zSliderProgram = QSlider(self.zControlWidget)
         self.zSliderProgram.setObjectName(u"zSliderProgram")
         self.zSliderProgram.setOrientation(Qt.Orientation.Vertical)
 
-        self.horizontalLayout_16.addWidget(self.zSliderProgram)
+        self.horizontalLayout_15.addWidget(self.zSliderProgram)
 
         self.horizontalSpacer_10 = QSpacerItem(13, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.horizontalLayout_16.addItem(self.horizontalSpacer_10)
+        self.horizontalLayout_15.addItem(self.horizontalSpacer_10)
 
 
-        self.zControlLayout.addLayout(self.horizontalLayout_16)
+        self.verticalLayout_11.addLayout(self.horizontalLayout_15)
 
-        self.label_35 = QLabel(self.programWidget)
+        self.label_35 = QLabel(self.zControlWidget)
         self.label_35.setObjectName(u"label_35")
         self.label_35.setMinimumSize(QSize(0, 20))
         self.label_35.setFont(font6)
         self.label_35.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.zControlLayout.addWidget(self.label_35)
+        self.verticalLayout_11.addWidget(self.label_35)
 
 
-        self.xyzControlLayout.addLayout(self.zControlLayout)
+        self.horizontalLayout_18.addWidget(self.zControlWidget)
 
 
-        self.verticalLayout_11.addLayout(self.xyzControlLayout)
+        self.verticalLayout_12.addLayout(self.horizontalLayout_18)
+
+        self.muControlWidget = QWidget(self.programWidget)
+        self.muControlWidget.setObjectName(u"muControlWidget")
+        self.muControlWidget.setMinimumSize(QSize(0, 22))
+        self.muControlWidget.setMaximumSize(QSize(16777215, 22))
+        self.muControlWidget.setStyleSheet(u"")
+        self.horizontalLayout_16 = QHBoxLayout(self.muControlWidget)
+        self.horizontalLayout_16.setObjectName(u"horizontalLayout_16")
+        self.horizontalLayout_16.setContentsMargins(-1, 1, -1, 1)
+        self.muLineEditProgram = QLineEdit(self.muControlWidget)
+        self.muLineEditProgram.setObjectName(u"muLineEditProgram")
+        self.muLineEditProgram.setMinimumSize(QSize(35, 20))
+        self.muLineEditProgram.setMaximumSize(QSize(35, 20))
+        self.muLineEditProgram.setStyleSheet(u"QLineEdit{\n"
+"	color: white;\n"
+"	font-size: 9pt;\n"
+"	background: transparent;\n"
+"	border: 1px solid gray;\n"
+"}")
+
+        self.horizontalLayout_16.addWidget(self.muLineEditProgram)
+
+        self.muSliderProgram = QSlider(self.muControlWidget)
+        self.muSliderProgram.setObjectName(u"muSliderProgram")
+        self.muSliderProgram.setStyleSheet(u"")
+        self.muSliderProgram.setOrientation(Qt.Orientation.Horizontal)
+
+        self.horizontalLayout_16.addWidget(self.muSliderProgram)
+
+        self.label_36 = QLabel(self.muControlWidget)
+        self.label_36.setObjectName(u"label_36")
+        self.label_36.setMinimumSize(QSize(0, 20))
+        self.label_36.setFont(font6)
+        self.label_36.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_16.addWidget(self.label_36)
+
+
+        self.verticalLayout_12.addWidget(self.muControlWidget)
+
+        self.gripperControlWidget = QWidget(self.programWidget)
+        self.gripperControlWidget.setObjectName(u"gripperControlWidget")
+        self.gripperControlWidget.setMinimumSize(QSize(0, 22))
+        self.gripperControlWidget.setMaximumSize(QSize(16777215, 22))
+        self.gripperControlWidget.setStyleSheet(u"")
+        self.horizontalLayout_17 = QHBoxLayout(self.gripperControlWidget)
+        self.horizontalLayout_17.setObjectName(u"horizontalLayout_17")
+        self.horizontalLayout_17.setContentsMargins(-1, 1, -1, 1)
+        self.gripperLineEditProgram = QLineEdit(self.gripperControlWidget)
+        self.gripperLineEditProgram.setObjectName(u"gripperLineEditProgram")
+        self.gripperLineEditProgram.setMinimumSize(QSize(35, 20))
+        self.gripperLineEditProgram.setMaximumSize(QSize(35, 20))
+        self.gripperLineEditProgram.setStyleSheet(u"QLineEdit{\n"
+"	color: white;\n"
+"	font-size: 9pt;\n"
+"	background: transparent;\n"
+"	border: 1px solid gray;\n"
+"}")
+
+        self.horizontalLayout_17.addWidget(self.gripperLineEditProgram)
+
+        self.gripperSliderProgram = QSlider(self.gripperControlWidget)
+        self.gripperSliderProgram.setObjectName(u"gripperSliderProgram")
+        self.gripperSliderProgram.setOrientation(Qt.Orientation.Horizontal)
+
+        self.horizontalLayout_17.addWidget(self.gripperSliderProgram)
+
+        self.label_38 = QLabel(self.gripperControlWidget)
+        self.label_38.setObjectName(u"label_38")
+        self.label_38.setMinimumSize(QSize(0, 20))
+        self.label_38.setFont(font6)
+        self.label_38.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_17.addWidget(self.label_38)
+
+
+        self.verticalLayout_12.addWidget(self.gripperControlWidget)
+
+
+        self.verticalLayout_16.addLayout(self.verticalLayout_12)
 
         self.recordWidget = QWidget(self.programWidget)
         self.recordWidget.setObjectName(u"recordWidget")
@@ -1542,7 +1627,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_13.addItem(self.horizontalSpacer_11)
 
 
-        self.verticalLayout_11.addWidget(self.recordWidget)
+        self.verticalLayout_16.addWidget(self.recordWidget)
 
         self.execWidget = QWidget(self.programWidget)
         self.execWidget.setObjectName(u"execWidget")
@@ -1680,7 +1765,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_14.addItem(self.horizontalSpacer_13)
 
 
-        self.verticalLayout_11.addWidget(self.execWidget)
+        self.verticalLayout_16.addWidget(self.execWidget)
 
         self.fileWidget = QHBoxLayout()
         self.fileWidget.setSpacing(10)
@@ -1733,7 +1818,7 @@ class Ui_MainWindow(object):
         self.fileWidget.addWidget(self.fileLabel)
 
 
-        self.verticalLayout_11.addLayout(self.fileWidget)
+        self.verticalLayout_16.addLayout(self.fileWidget)
 
         self.label_17 = QLabel(self.programWidget)
         self.label_17.setObjectName(u"label_17")
@@ -1748,7 +1833,7 @@ class Ui_MainWindow(object):
 "")
         self.label_17.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout_11.addWidget(self.label_17)
+        self.verticalLayout_16.addWidget(self.label_17)
 
         self.positionlistWidget = QListWidget(self.programWidget)
         self.positionlistWidget.setObjectName(u"positionlistWidget")
@@ -1786,7 +1871,7 @@ class Ui_MainWindow(object):
 "}\n"
 "")
 
-        self.verticalLayout_11.addWidget(self.positionlistWidget)
+        self.verticalLayout_16.addWidget(self.positionlistWidget)
 
 
         self.horizontalLayout_11.addWidget(self.programWidget)
@@ -1837,12 +1922,15 @@ class Ui_MainWindow(object):
         self.ChessBtn2.toggled.connect(self.ChessBtn1.setChecked)
         self.MinimizeBtn.clicked.connect(MainWindow.showMinimized)
         self.CloseBtn.clicked.connect(MainWindow.close)
-        self.recordBtn.toggled.connect(self.recordWidget.setVisible)
+        self.recordBtn.toggled.connect(self.fileLabel.setHidden)
         self.recordBtn.toggled.connect(self.execWidget.setHidden)
         self.execBtn.toggled.connect(self.recordWidget.setHidden)
         self.execBtn.toggled.connect(self.execWidget.setVisible)
+        self.recordBtn.toggled.connect(self.importBtn.setHidden)
+        self.execBtn.toggled.connect(self.fileLabel.setVisible)
+        self.execBtn.toggled.connect(self.importBtn.setVisible)
 
-        self.stackedWidget.setCurrentIndex(0)
+        self.stackedWidget.setCurrentIndex(2)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -1864,7 +1952,7 @@ class Ui_MainWindow(object):
         self.ProgramBtn2.setText(QCoreApplication.translate("MainWindow", u"  Program", None))
         self.DrawBtn2.setText(QCoreApplication.translate("MainWindow", u"    Draw", None))
         self.ChessBtn2.setText(QCoreApplication.translate("MainWindow", u"  Chess AI", None))
-        self.GithubBtn2.setText(QCoreApplication.translate("MainWindow", u" Github", None))
+        self.GithubBtn2.setText(QCoreApplication.translate("MainWindow", u"  Github", None))
         self.SidebarBtn.setText("")
         self.label_4.setText(QCoreApplication.translate("MainWindow", u"Graphical Interface - Projet 3", None))
         self.MinimizeBtn.setText("")
@@ -1911,6 +1999,10 @@ class Ui_MainWindow(object):
         self.label_16.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Controls  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.zLineEditProgram.setText(QCoreApplication.translate("MainWindow", u"0", None))
         self.label_35.setText(QCoreApplication.translate("MainWindow", u"Z", None))
+        self.muLineEditProgram.setText(QCoreApplication.translate("MainWindow", u"0", None))
+        self.label_36.setText(QCoreApplication.translate("MainWindow", u"\u03bc", None))
+        self.gripperLineEditProgram.setText(QCoreApplication.translate("MainWindow", u"0", None))
+        self.label_38.setText(QCoreApplication.translate("MainWindow", u"G", None))
         self.deleteRecording.setText("")
         self.startRecording.setText("")
         self.pauseRecording.setText("")

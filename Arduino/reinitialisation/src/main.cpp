@@ -11,7 +11,6 @@ void setup() {
   pinMode(CW1, OUTPUT);
   pinMode(EN1, OUTPUT);
   pinMode(capteur1, INPUT);
-  Serial.begin(9600);
 
   while (digitalRead(capteur1) == LOW) {
     digitalWrite(CLK1, HIGH);

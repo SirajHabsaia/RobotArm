@@ -1,6 +1,7 @@
 from Designer.ui_gui import Ui_MainWindow
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog
-from PySide6.QtCore import Qt, QPoint, QRect
+from PySide6.QtCore import Qt, QPoint, QRect, QUrl
+from PySide6.QtGui import QDesktopServices
 from home import AspectRatioLabel
 from ThreeD import RobotVTKWidget
 from ring_slider import RingSlider
@@ -20,6 +21,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self.icon_name_widget.setHidden(True)
         self.execWidget.setHidden(True)
+        self.importBtn.setHidden(True)
+        self.fileLabel.setHidden(True)
         
         # Load parameters from JSON
         self._load_parameters()
@@ -53,6 +56,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.DrawBtn2.clicked.connect(lambda: self.switch_menu(3))
         self.ChessBtn1.clicked.connect(lambda: self.switch_menu(4))
         self.ChessBtn2.clicked.connect(lambda: self.switch_menu(4))
+        self.GithubBtn1.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/SirajHabsaia/RobotArm")))
+        self.GithubBtn2.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/SirajHabsaia/RobotArm")))
 
         self.MaximizeBtn.clicked.connect(self.toggle_window)
 
@@ -83,7 +88,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.file_loaded = False
         
         # Waypoint tracking
-        self.waypoints = []  # List of tuples (x, y, z)
+        self.waypoints = []  # List of tuples (x, y, z, mu, gripper)
         self.current_waypoint = None  # Temporary waypoint before adding to list (x, y)
         
         # Deadzone state tracking
@@ -135,7 +140,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 "xmin": -350, "xmax": 350, "xdef": 0,
                 "ymin": -350, "ymax": 350, "ydef": 0,
                 "zmin": -350, "zmax": 350, "zdef": 0,
-                "mumin": -90, "mumax": 30, "mudef": 0
+                "mumin": -90, "mumax": 30, "mudef": 0,
+                "grippermin": 0, "grippermax": 180, "gripperdef": 90
             }
     
     def _setup_cartesian_sliders(self):
@@ -289,6 +295,34 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # Connect line edit to update slider when Return key is pressed
         self.zLineEditProgram.returnPressed.connect(lambda: self._update_program_z_from_lineedit())
+        
+        # Mu slider for Program page
+        self.muSliderProgram.setMinimum(self.params["mumin"])
+        self.muSliderProgram.setMaximum(self.params["mumax"])
+        self.muSliderProgram.setValue(self.params["mudef"])
+        self.muLineEditProgram.setText(str(self.params["mudef"]))
+        
+        # Connect mu slider to update line edit when slider moves
+        self.muSliderProgram.valueChanged.connect(lambda v: self._update_program_mu_from_slider(v))
+        
+        # Connect mu line edit to update slider when Return key is pressed
+        self.muLineEditProgram.returnPressed.connect(lambda: self._update_program_mu_from_lineedit())
+        
+        # Gripper slider for Program page
+        gripper_min = self.params.get("grippermin", 0)
+        gripper_max = self.params.get("grippermax", 180)
+        gripper_def = self.params.get("gripperdef", 90)
+        
+        self.gripperSliderProgram.setMinimum(gripper_min)
+        self.gripperSliderProgram.setMaximum(gripper_max)
+        self.gripperSliderProgram.setValue(gripper_def)
+        self.gripperLineEditProgram.setText(str(gripper_def))
+        
+        # Connect gripper slider to update line edit when slider moves
+        self.gripperSliderProgram.valueChanged.connect(lambda v: self._update_program_gripper_from_slider(v))
+        
+        # Connect gripper line edit to update slider when Return key is pressed
+        self.gripperLineEditProgram.returnPressed.connect(lambda: self._update_program_gripper_from_lineedit())
     
     def _update_program_z_from_slider(self, value):
         """Update zLineEditProgram when zSliderProgram value changes"""
@@ -308,6 +342,46 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         except ValueError:
             # Invalid input, revert lineEdit to current slider value
             self.zLineEditProgram.setText(str(self.zSliderProgram.value()))
+    
+    def _update_program_mu_from_slider(self, value):
+        """Update muLineEditProgram when muSliderProgram value changes"""
+        self.muLineEditProgram.setText(str(value))
+    
+    def _update_program_mu_from_lineedit(self):
+        """Update muSliderProgram when muLineEditProgram value is entered"""
+        try:
+            value = int(self.muLineEditProgram.text())
+            if self.params["mumin"] <= value <= self.params["mumax"]:
+                self.muSliderProgram.blockSignals(True)  # Prevent triggering slider's valueChanged
+                self.muSliderProgram.setValue(value)
+                self.muSliderProgram.blockSignals(False)
+            else:
+                # Value out of range, revert lineEdit to current slider value
+                self.muLineEditProgram.setText(str(self.muSliderProgram.value()))
+        except ValueError:
+            # Invalid input, revert lineEdit to current slider value
+            self.muLineEditProgram.setText(str(self.muSliderProgram.value()))
+    
+    def _update_program_gripper_from_slider(self, value):
+        """Update gripperLineEditProgram when gripperSliderProgram value changes"""
+        self.gripperLineEditProgram.setText(str(value))
+    
+    def _update_program_gripper_from_lineedit(self):
+        """Update gripperSliderProgram when gripperLineEditProgram value is entered"""
+        try:
+            value = int(self.gripperLineEditProgram.text())
+            gripper_min = self.params.get("grippermin", 0)
+            gripper_max = self.params.get("grippermax", 180)
+            if gripper_min <= value <= gripper_max:
+                self.gripperSliderProgram.blockSignals(True)  # Prevent triggering slider's valueChanged
+                self.gripperSliderProgram.setValue(value)
+                self.gripperSliderProgram.blockSignals(False)
+            else:
+                # Value out of range, revert lineEdit to current slider value
+                self.gripperLineEditProgram.setText(str(self.gripperSliderProgram.value()))
+        except ValueError:
+            # Invalid input, revert lineEdit to current slider value
+            self.gripperLineEditProgram.setText(str(self.gripperSliderProgram.value()))
     
     def _update_xy_from_slider(self, value, axis):
         """Update lineEdit and label when x or y slider moves, respecting Rmin deadzone"""
@@ -600,9 +674,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.record_mode = True
         self.recordBtn.setChecked(True)
         self.execBtn.setChecked(False)
-        # Enable Z slider in Record mode
+        # Enable Z, mu, and gripper sliders in Record mode
         self.zSliderProgram.setEnabled(True)
         self.zLineEditProgram.setEnabled(True)
+        self.muSliderProgram.setEnabled(True)
+        self.muLineEditProgram.setEnabled(True)
+        self.gripperSliderProgram.setEnabled(True)
+        self.gripperLineEditProgram.setEnabled(True)
         # Clear all waypoints when switching to Record mode
         self._clear_all_waypoints()
         # Clear file label
@@ -614,9 +692,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.record_mode = False
         self.recordBtn.setChecked(False)
         self.execBtn.setChecked(True)
-        # Disable Z slider in Execute mode (it will follow selected waypoint)
+        # Disable Z, mu, and gripper sliders in Execute mode (they will follow selected waypoint)
         self.zSliderProgram.setEnabled(False)
         self.zLineEditProgram.setEnabled(False)
+        self.muSliderProgram.setEnabled(False)
+        self.muLineEditProgram.setEnabled(False)
+        self.gripperSliderProgram.setEnabled(False)
+        self.gripperLineEditProgram.setEnabled(False)
     
     def _on_start_recording(self):
         """Start or resume recording waypoints"""
@@ -658,17 +740,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Add current waypoint to the list"""
         if self.current_waypoint and self.record_mode and self.recording_started:
             x, y = self.current_waypoint
-            # Get Z value from slider
+            # Get Z, mu, and gripper values from sliders
             z = self.zSliderProgram.value()
+            mu = self.muSliderProgram.value()
+            gripper = self.gripperSliderProgram.value()
             
-            # Add to waypoints list
-            self.waypoints.append((x, y, z))
+            # Add to waypoints list with mu and gripper values
+            self.waypoints.append((x, y, z, mu, gripper))
             
             # Commit the temporary waypoint to permanent waypoints in graph
             self.coord_system.commit_temporary_waypoint()
             
-            # Add to list widget
-            waypoint_text = f"({x:.1f}, {y:.1f}, {z:.1f})"
+            # Add to list widget with mu and gripper values
+            waypoint_text = f"({x:.1f}, {y:.1f}, {z:.1f}, mu:{mu}, g:{gripper})"
             self.positionlistWidget.addItem(waypoint_text)
             
             # Clear current waypoint to allow selecting next point
@@ -687,7 +771,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # Remove from waypoints list
         if 0 <= row < len(self.waypoints):
-            x, y, z = self.waypoints[row]
+            x, y, z, mu, gripper = self.waypoints[row]
             # Remove waypoint from graph
             self.coord_system.remove_waypoint(x, y)
             # Remove from list
@@ -706,22 +790,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Update graph to highlight selected waypoint
             self.coord_system.set_selected_waypoint(row)
             
-            # In Execute mode, update Z slider with selected waypoint's Z coordinate
+            # In Execute mode, update Z, mu, and gripper sliders with selected waypoint's values
             if not self.record_mode and 0 <= row < len(self.waypoints):
-                x, y, z = self.waypoints[row]
+                x, y, z, mu, gripper = self.waypoints[row]
                 self.zSliderProgram.setValue(int(z))
                 self.zLineEditProgram.setText(str(int(z)))
+                self.muSliderProgram.setValue(int(mu))
+                self.muLineEditProgram.setText(str(int(mu)))
+                self.gripperSliderProgram.setValue(int(gripper))
+                self.gripperLineEditProgram.setText(str(int(gripper)))
         else:
             self.selected_waypoint_index = None
             self.coord_system.set_selected_waypoint(None)
     
     def _save_waypoints_to_file(self, file_path):
-        """Save waypoints to a file in the format x<value>y<value>z<value>"""
+        """Save waypoints to a file in the format x<value>y<value>z<value>m<value>g<value>"""
         try:
             with open(file_path, 'w') as f:
-                for x, y, z in self.waypoints:
-                    # Format: x<value>y<value>z<value>
-                    line = f"x{x:.1f}y{y:.1f}z{z:.1f}\n"
+                for x, y, z, mu, gripper in self.waypoints:
+                    # Format: x<value>y<value>z<value>m<value>g<value>
+                    line = f"x{x:.1f}y{y:.1f}z{z:.1f}m{mu}g{gripper}\n"
                     f.write(line)
         except Exception as e:
             print(f"Error saving waypoints: {e}")
@@ -756,27 +844,33 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     if not line:
                         continue
                     
-                    # Parse line format: x<value>y<value>z<value>
+                    # Parse line format: x<value>y<value>z<value>m<value>g<value>
                     try:
-                        # Find x, y, z values
+                        # Find x, y, z, m, g values
                         x_start = line.find('x') + 1
                         y_start = line.find('y')
                         y_value_start = y_start + 1
                         z_start = line.find('z')
                         z_value_start = z_start + 1
+                        m_start = line.find('m')
+                        m_value_start = m_start + 1
+                        g_start = line.find('g')
+                        g_value_start = g_start + 1
                         
                         x = float(line[x_start:y_start])
                         y = float(line[y_value_start:z_start])
-                        z = float(line[z_value_start:])
+                        z = float(line[z_value_start:m_start])
+                        mu = int(line[m_value_start:g_start])
+                        gripper = int(line[g_value_start:])
                         
                         # Add waypoint to list
-                        self.waypoints.append((x, y, z))
+                        self.waypoints.append((x, y, z, mu, gripper))
                         
                         # Add to graph (permanent waypoint)
                         self.coord_system.add_waypoint(x, y)
                         
                         # Add to list widget
-                        waypoint_text = f"({x:.1f}, {y:.1f}, {z:.1f})"
+                        waypoint_text = f"({x:.1f}, {y:.1f}, {z:.1f}, mu:{mu}, g:{gripper})"
                         self.positionlistWidget.addItem(waypoint_text)
                         
                     except (ValueError, IndexError) as e:

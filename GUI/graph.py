@@ -663,7 +663,13 @@ class CoordinateSystemWidget(QWidget):
             # Emit coordinates at click position for left click
             coord_x = self._to_coord_x(event.position().x())
             coord_y = self._to_coord_y(event.position().y())
-            self.coordinatesChanged.emit(coord_x, coord_y)
+            
+            # Check if the point is within valid radius bounds (Rmin < r < Rmax)
+            radius = math.sqrt(coord_x**2 + coord_y**2)
+            if self.Rmin < radius < self.Rmax:
+                # Only emit coordinates if point is in valid zone
+                self.coordinatesChanged.emit(coord_x, coord_y)
+            # If point is in red zone (deadzone), don't emit signal
             event.accept()
     
     def leaveEvent(self, event):
