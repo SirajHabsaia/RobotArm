@@ -4,8 +4,8 @@ const uint8_t N = 2; // number of joints
 uint8_t CLK[N] = {4, 2};
 uint8_t DIR[N] = {5, 3};
 int RESOLUTION[N] = {8*200, 8*200}; // steps per revolution
-float max_speed[N] = {40., 40.}; // degrees per second
-float acceleration[N] = {100., 100.}; // degrees per second per second
+float max_speed[N] = {10., 10.}; // degrees per second
+float acceleration[N] = {10., 10.}; // degrees per second per second
 bool inv_dir[N] = {true, false}; // invert direction flags
 
 unsigned long current_time_micros = 0;
@@ -348,6 +348,25 @@ void readSerial() {
 
 }
 
+unsigned long last_feedback_time = 0;
+unsigned long feedback_interval = 50e3; //us
+bool feedback_enabled = true;
+
+void feedback() {
+    if (!feedback_enabled || !currently_following_trajectory) return;
+    current_time_micros = micros();
+    if (current_time_micros - last_feedback_time >= feedback_interval) {
+        last_feedback_time = current_time_micros;
+        // t<time>a<angle1>b<angle2>
+        Serial.print("t");
+        Serial.print((current_time_micros - trajectory_start_us)/1e6f, 3);
+        Serial.print("a");
+        Serial.print(current_angle[0], 2);
+        Serial.print("b");
+        Serial.println(current_angle[1], 2);
+    }
+}
+
 void setup() {
     Serial.begin(115200);
     for (uint8_t j = 0; j < N; j++) {
@@ -365,4 +384,6 @@ void loop() {
     if (currently_interpolating) follow_trajectory(interpolation_trajectory);
     if (currently_drawing_circle) follow_trajectory(circle_cartesian);
     if (currently_drawing_line) follow_trajectory(line_cartesian);
+
+    feedback();
 }

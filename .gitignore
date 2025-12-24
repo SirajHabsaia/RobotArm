@@ -58,10 +58,13 @@ Arduino/**/*.gitignore
 *.swp
 *.swo
 
-# Other
+# Images
 AI/data/
 *.jpg
 *.png
 *.mp4
 !GUI/**/*.png
 !GUI/**/*.jpg
+
+#Debug
+Debugger/output.txt
