@@ -989,7 +989,7 @@ QPushButton:hover{
           <string notr="true">background-color: transparent;</string>
          </property>
          <property name="currentIndex">
-          <number>2</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="page_home">
           <layout class="QGridLayout" name="gridLayout_2">
@@ -1570,7 +1570,7 @@ QWidget{
                 <property name="minimumSize">
                  <size>
                   <width>0</width>
-                  <height>250</height>
+                  <height>260</height>
                  </size>
                 </property>
                 <property name="styleSheet">
@@ -1635,6 +1635,12 @@ QSlider::handle:horizontal:pressed {
                  <item>
                   <widget class="QWidget" name="xWidget" native="true">
                    <layout class="QVBoxLayout" name="verticalLayout_9">
+                    <property name="topMargin">
+                     <number>5</number>
+                    </property>
+                    <property name="bottomMargin">
+                     <number>5</number>
+                    </property>
                     <item>
                      <layout class="QHBoxLayout" name="horizontalLayout_9">
                       <item>
@@ -1817,6 +1823,12 @@ QSlider::handle:horizontal:pressed {
                  <item>
                   <widget class="QWidget" name="yWidget" native="true">
                    <layout class="QVBoxLayout" name="verticalLayout_10">
+                    <property name="topMargin">
+                     <number>5</number>
+                    </property>
+                    <property name="bottomMargin">
+                     <number>5</number>
+                    </property>
                     <item>
                      <layout class="QHBoxLayout" name="horizontalLayout_20">
                       <item>
@@ -1996,6 +2008,12 @@ QSlider::handle:horizontal:pressed {
                  <item>
                   <widget class="QWidget" name="zWidget" native="true">
                    <layout class="QVBoxLayout" name="verticalLayout_13">
+                    <property name="topMargin">
+                     <number>5</number>
+                    </property>
+                    <property name="bottomMargin">
+                     <number>5</number>
+                    </property>
                     <item>
                      <layout class="QHBoxLayout" name="horizontalLayout_22">
                       <item>
@@ -2175,6 +2193,12 @@ QSlider::handle:horizontal:pressed {
                  <item>
                   <widget class="QWidget" name="muWidget" native="true">
                    <layout class="QVBoxLayout" name="verticalLayout_14">
+                    <property name="topMargin">
+                     <number>5</number>
+                    </property>
+                    <property name="bottomMargin">
+                     <number>5</number>
+                    </property>
                     <item>
                      <layout class="QHBoxLayout" name="horizontalLayout_24">
                       <item>
@@ -2347,6 +2371,99 @@ QSlider::handle:horizontal:pressed {
                        </widget>
                       </item>
                      </layout>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QWidget" name="sendallWidget" native="true">
+                   <layout class="QHBoxLayout" name="horizontalLayout_19">
+                    <property name="spacing">
+                     <number>0</number>
+                    </property>
+                    <item>
+                     <spacer name="horizontalSpacer_16">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="sendallBtn">
+                      <property name="minimumSize">
+                       <size>
+                        <width>0</width>
+                        <height>30</height>
+                       </size>
+                      </property>
+                      <property name="maximumSize">
+                       <size>
+                        <width>16777215</width>
+                        <height>30</height>
+                       </size>
+                      </property>
+                      <property name="styleSheet">
+                       <string notr="true">QPushButton {
+    background-color: transparent;
+    color: #e6e6e6;
+
+    border: 2px solid #6a6a6a;   /* visible gray frame */
+    border-radius: 6px;
+
+    padding: 6px 14px;
+    font-size: 14px;
+}
+
+/* Hover: brighter frame + subtle overlay */
+QPushButton:hover {
+    border-color: #9a9a9a;
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Pressed: darker frame + stronger overlay */
+QPushButton:pressed {
+    border-color: #b0b0b0;
+    background-color: rgba(0, 0, 0, 0.25);
+    padding-top: 7px;   /* subtle pressed effect */
+    padding-bottom: 5px;
+}
+
+/* Focus (keyboard navigation) */
+QPushButton:focus {
+    border-color: #bfbfbf;
+}
+
+/* Disabled */
+QPushButton:disabled {
+    color: #777777;
+    border-color: #444444;
+    background-color: transparent;
+}
+</string>
+                      </property>
+                      <property name="text">
+                       <string>Send all coordinates</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_15">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
                     </item>
                    </layout>
                   </widget>

@@ -25,11 +25,15 @@ void readSerial() {
                 String theta_str = line.substring(t_idx + 1, a_idx);
                 String angle1_str = line.substring(a_idx + 1, b_idx);
                 String angle2_str = line.substring(b_idx + 1);
-
+                
                 target_angle_interpolation[0] = theta_str.toFloat();
                 target_angle_interpolation[1] = angle1_str.toFloat();
                 target_angle_interpolation[2] = angle2_str.toFloat();
                 
+                //shortest theta path
+                while (current_angle[0] - target_angle_interpolation[0] > 180.0) target_angle_interpolation[0] += 360.0;
+                while (current_angle[0] - target_angle_interpolation[0] < -180.0) target_angle_interpolation[0] -= 360.0;
+
                 begin_interpolate();
             
             } else {

@@ -1,10 +1,10 @@
 {
     "xdef": 200,
     "ydef": 0,
-    "zdef": 0,
+    "zdef": 250,
 
     "zmin": -100,
-    "zmax": 100,
+    "zmax": 250,
     
     "mumin": -90,
     "mumax": 30,

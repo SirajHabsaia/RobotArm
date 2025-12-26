@@ -742,7 +742,7 @@ class Ui_MainWindow(object):
 
         self.cartesianWidget = QWidget(self.manipWidget)
         self.cartesianWidget.setObjectName(u"cartesianWidget")
-        self.cartesianWidget.setMinimumSize(QSize(0, 250))
+        self.cartesianWidget.setMinimumSize(QSize(0, 260))
         self.cartesianWidget.setStyleSheet(u"QLineEdit{\n"
 "	color: white;\n"
 "	font-size: 9pt;\n"
@@ -792,6 +792,7 @@ class Ui_MainWindow(object):
         self.xWidget.setObjectName(u"xWidget")
         self.verticalLayout_9 = QVBoxLayout(self.xWidget)
         self.verticalLayout_9.setObjectName(u"verticalLayout_9")
+        self.verticalLayout_9.setContentsMargins(-1, 5, -1, 5)
         self.horizontalLayout_9 = QHBoxLayout()
         self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
         self.horizontalSpacer_8 = QSpacerItem(50, 17, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -885,6 +886,7 @@ class Ui_MainWindow(object):
         self.yWidget.setObjectName(u"yWidget")
         self.verticalLayout_10 = QVBoxLayout(self.yWidget)
         self.verticalLayout_10.setObjectName(u"verticalLayout_10")
+        self.verticalLayout_10.setContentsMargins(-1, 5, -1, 5)
         self.horizontalLayout_20 = QHBoxLayout()
         self.horizontalLayout_20.setObjectName(u"horizontalLayout_20")
         self.horizontalSpacer_19 = QSpacerItem(50, 17, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -969,6 +971,7 @@ class Ui_MainWindow(object):
         self.zWidget.setObjectName(u"zWidget")
         self.verticalLayout_13 = QVBoxLayout(self.zWidget)
         self.verticalLayout_13.setObjectName(u"verticalLayout_13")
+        self.verticalLayout_13.setContentsMargins(-1, 5, -1, 5)
         self.horizontalLayout_22 = QHBoxLayout()
         self.horizontalLayout_22.setObjectName(u"horizontalLayout_22")
         self.horizontalSpacer_21 = QSpacerItem(50, 17, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -1053,6 +1056,7 @@ class Ui_MainWindow(object):
         self.muWidget.setObjectName(u"muWidget")
         self.verticalLayout_14 = QVBoxLayout(self.muWidget)
         self.verticalLayout_14.setObjectName(u"verticalLayout_14")
+        self.verticalLayout_14.setContentsMargins(-1, 5, -1, 5)
         self.horizontalLayout_24 = QHBoxLayout()
         self.horizontalLayout_24.setObjectName(u"horizontalLayout_24")
         self.horizontalSpacer_23 = QSpacerItem(50, 17, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -1132,6 +1136,66 @@ class Ui_MainWindow(object):
 
 
         self.verticalLayout_15.addWidget(self.muWidget)
+
+        self.sendallWidget = QWidget(self.cartesianWidget)
+        self.sendallWidget.setObjectName(u"sendallWidget")
+        self.horizontalLayout_19 = QHBoxLayout(self.sendallWidget)
+        self.horizontalLayout_19.setSpacing(0)
+        self.horizontalLayout_19.setObjectName(u"horizontalLayout_19")
+        self.horizontalSpacer_16 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_19.addItem(self.horizontalSpacer_16)
+
+        self.sendallBtn = QPushButton(self.sendallWidget)
+        self.sendallBtn.setObjectName(u"sendallBtn")
+        self.sendallBtn.setMinimumSize(QSize(0, 30))
+        self.sendallBtn.setMaximumSize(QSize(16777215, 30))
+        self.sendallBtn.setStyleSheet(u"QPushButton {\n"
+"    background-color: transparent;\n"
+"    color: #e6e6e6;\n"
+"\n"
+"    border: 2px solid #6a6a6a;   /* visible gray frame */\n"
+"    border-radius: 6px;\n"
+"\n"
+"    padding: 6px 14px;\n"
+"    font-size: 14px;\n"
+"}\n"
+"\n"
+"/* Hover: brighter frame + subtle overlay */\n"
+"QPushButton:hover {\n"
+"    border-color: #9a9a9a;\n"
+"    background-color: rgba(255, 255, 255, 0.04);\n"
+"}\n"
+"\n"
+"/* Pressed: darker frame + stronger overlay */\n"
+"QPushButton:pressed {\n"
+"    border-color: #b0b0b0;\n"
+"    background-color: rgba(0, 0, 0, 0.25);\n"
+"    padding-top: 7px;   /* subtle pressed effect */\n"
+"    padding-bottom: 5px;\n"
+"}\n"
+"\n"
+"/* Focus (keyboard navigation) */\n"
+"QPushButton:focus {\n"
+"    border-color: #bfbfbf;\n"
+"}\n"
+"\n"
+"/* Disabled */\n"
+"QPushButton:disabled {\n"
+"    color: #777777;\n"
+"    border-color: #444444;\n"
+"    background-color: transparent;\n"
+"}\n"
+"")
+
+        self.horizontalLayout_19.addWidget(self.sendallBtn)
+
+        self.horizontalSpacer_15 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_19.addItem(self.horizontalSpacer_15)
+
+
+        self.verticalLayout_15.addWidget(self.sendallWidget)
 
 
         self.verticalLayout_8.addWidget(self.cartesianWidget)
@@ -1930,7 +1994,7 @@ class Ui_MainWindow(object):
         self.execBtn.toggled.connect(self.fileLabel.setVisible)
         self.execBtn.toggled.connect(self.importBtn.setVisible)
 
-        self.stackedWidget.setCurrentIndex(2)
+        self.stackedWidget.setCurrentIndex(0)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -1991,6 +2055,7 @@ class Ui_MainWindow(object):
         self.muLabel.setText(QCoreApplication.translate("MainWindow", u"0", None))
         self.muminLabel.setText(QCoreApplication.translate("MainWindow", u"-200", None))
         self.mumaxLabel.setText(QCoreApplication.translate("MainWindow", u"200", None))
+        self.sendallBtn.setText(QCoreApplication.translate("MainWindow", u"Send all coordinates", None))
         self.label_13.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Joint Angles  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_14.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Gripper Activation  \u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_10.setText(QCoreApplication.translate("MainWindow", u"Mode:", None))

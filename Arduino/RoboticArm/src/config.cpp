@@ -6,8 +6,8 @@
 uint8_t CLK[N] = {6, 4, 2};
 uint8_t DIR[N] = {7, 5, 3};
 int RESOLUTION[N] = {8*200, 8*200, 8*200};
-float max_speed[N] = {10., 10., 10.};
-float acceleration[N] = {10., 10., 10.};
+float max_speed[N] = {50., 15., 15.};
+float acceleration[N] = {20., 10., 10.};
 bool inv_dir[N] = {true, false, false};
 
 float L1 = 250.0;
@@ -85,6 +85,6 @@ unsigned long serial_check_interval = 1000;
 // FEEDBACK SYSTEM
 // ===========================
 unsigned long last_feedback_time = 0;
-unsigned long feedback_interval = 10e3;
+unsigned long feedback_interval = 50e3;
 bool feedback_enabled = true;
 bool time_feedback_enabled = true;

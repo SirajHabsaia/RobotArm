@@ -1,6 +1,6 @@
 from Designer.ui_gui import Ui_MainWindow
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog
-from PySide6.QtCore import Qt, QPoint, QRect, QUrl
+from PySide6.QtCore import Qt, QPoint, QRect, QUrl, QTimer
 from PySide6.QtGui import QDesktopServices
 from home import AspectRatioLabel
 from ThreeD import RobotVTKWidget
@@ -11,6 +11,8 @@ import json
 import math
 import serial
 import serial.tools.list_ports
+import numpy as np
+from kinematics import direct_kinematics
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -126,6 +128,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Initialize COM port list and button states
         self._on_refresh_com_ports()
         self._update_com_button_states()
+        
+        # Serial command debouncing - single-shot timer
+        self.command_debounce_timer = QTimer()
+        self.command_debounce_timer.setSingleShot(True)
+        self.command_debounce_timer.setInterval(100)  # 100ms debounce
+        self.command_debounce_timer.timeout.connect(self._send_ring_slider_command)
+        
+        # Store pending slider values
+        self.pending_theta = None
+        self.pending_alpha = None
+        self.pending_beta = None
+        
+        # Serial reading timer for feedback
+        self.serial_read_timer = QTimer()
+        self.serial_read_timer.setInterval(20)  # Read every 20ms
+        self.serial_read_timer.timeout.connect(self._read_serial_feedback)
+        self.serial_buffer = ""  # Buffer for incomplete serial data
+        
+        # Current actual position from Arduino feedback
+        self.current_x = 0.0
+        self.current_y = 0.0
+        self.current_z = 0.0
     
     def _load_parameters(self):
         """Load parameters from params.json"""
@@ -182,19 +206,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.mulineEdit.setText(str(self.params["mudef"]))
         self.muLabel.setText(str(self.params["mudef"]))
         
-        # Connect sliders to update both lineEdit and label when slider moves
+        # Connect sliders to update lineEdit only (labels are updated from Arduino feedback)
         # X and Y sliders use special deadzone handling
-        self.xSlider.valueChanged.connect(lambda v: self._update_xy_from_slider(v, 'x'))
-        self.ySlider.valueChanged.connect(lambda v: self._update_xy_from_slider(v, 'y'))
-        self.zSlider.valueChanged.connect(lambda v: self._update_from_slider(v, self.zlineEdit, self.zLabel))
-        self.muSlider.valueChanged.connect(lambda v: self._update_from_slider(v, self.mulineEdit, self.muLabel))
+        self.xSlider.valueChanged.connect(lambda v: self._update_xy_slider_lineedit(v, 'x'))
+        self.ySlider.valueChanged.connect(lambda v: self._update_xy_slider_lineedit(v, 'y'))
+        self.zSlider.valueChanged.connect(lambda v: self.zlineEdit.setText(str(v)))
+        self.muSlider.valueChanged.connect(lambda v: self.mulineEdit.setText(str(v)))
         
-        # Connect buttons to update slider and label from lineEdit when button is pressed
-        # X and Y buttons use special deadzone validation
-        self.xBtn.clicked.connect(lambda: self._update_xy_from_lineedit('x'))
-        self.yBtn.clicked.connect(lambda: self._update_xy_from_lineedit('y'))
-        self.zBtn.clicked.connect(lambda: self._update_from_lineedit(self.zlineEdit, self.zSlider, self.zLabel, -self.params["Rmax"], self.params["Rmax"]))
-        self.muBtn.clicked.connect(lambda: self._update_from_lineedit(self.mulineEdit, self.muSlider, self.muLabel, self.params["mumin"], self.params["mumax"]))
+        # Connect buttons to send cartesian commands
+        self.xBtn.clicked.connect(lambda: self._send_single_cartesian_command('x'))
+        self.yBtn.clicked.connect(lambda: self._send_single_cartesian_command('y'))
+        self.zBtn.clicked.connect(lambda: self._send_single_cartesian_command('z'))
+        self.muBtn.clicked.connect(lambda: self._send_single_cartesian_command('mu'))
+        
+        # Connect send all button
+        self.sendallBtn.clicked.connect(self._send_all_cartesian_command)
         
         # Store last valid x,y values for deadzone handling
         self._last_valid_x = self.params["xdef"]
@@ -383,23 +409,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Invalid input, revert lineEdit to current slider value
             self.gripperLineEditProgram.setText(str(self.gripperSliderProgram.value()))
     
-    def _update_xy_from_slider(self, value, axis):
-        """Update lineEdit and label when x or y slider moves, respecting Rmin deadzone"""
+    def _update_xy_slider_lineedit(self, value, axis):
+        """Update lineEdit when x or y slider moves, respecting Rmin deadzone (label updated from feedback)"""
         # Get current values and UI elements
         if axis == 'x':
             x = value
-            # Use last valid y value, not the current lineEdit (which might be outdated)
             y = self._last_valid_y
             lineedit = self.xlineEdit
-            label = self.xLabel
             slider = self.xSlider
             other_slider = self.ySlider
         else:  # axis == 'y'
-            # Use last valid x value, not the current lineEdit (which might be outdated)
             x = self._last_valid_x
             y = value
             lineedit = self.ylineEdit
-            label = self.yLabel
             slider = self.ySlider
             other_slider = self.xSlider
         
@@ -456,91 +478,122 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self._x_in_deadzone = False
             
         lineedit.setText(str(value))
-        label.setText(str(value))
         
         if axis == 'x':
             self._last_valid_x = value
         else:
             self._last_valid_y = value
     
-    def _update_xy_from_lineedit(self, axis):
-        """Update slider and label when x or y button is pressed, respecting Rmin constraint"""
+    def _send_single_cartesian_command(self, axis):
+        """Send cartesian command when individual axis button is pressed"""
+        # Synchronize lineEdit with slider first
         if axis == 'x':
             lineedit = self.xlineEdit
             slider = self.xSlider
-            label = self.xLabel
-            other_value = int(self.ylineEdit.text()) if self.ylineEdit.text() else 0
-            original_style = self._x_slider_original_style
-        else:  # axis == 'y'
+        elif axis == 'y':
             lineedit = self.ylineEdit
             slider = self.ySlider
-            label = self.yLabel
-            other_value = int(self.xlineEdit.text()) if self.xlineEdit.text() else 0
-            original_style = self._y_slider_original_style
+        elif axis == 'z':
+            lineedit = self.zlineEdit
+            slider = self.zSlider
+        else:  # mu - not implemented yet
+            return
         
         try:
             value = int(lineedit.text())
-            
-            # Check range
-            if not (-self.params["Rmax"] <= value <= self.params["Rmax"]):
-                # Out of range, revert
-                lineedit.setText(str(slider.value()))
-                return
-            
-            # Calculate norm with this new value
-            if axis == 'x':
-                x = value
-                y = other_value
-            else:
-                x = other_value
-                y = value
-            
-            norm = math.sqrt(x**2 + y**2)
-            
-            # Check Rmin constraint
-            if norm < self.params["Rmin"]:
-                # Violates constraint - don't update label or slider
-                # Revert lineEdit to current slider value
-                lineedit.setText(str(slider.value()))
-                return
-            
-            # Valid value - restore original style and update slider and label
-            slider.setStyleSheet(original_style)
-            slider.blockSignals(True)
-            slider.setValue(value)
-            slider.blockSignals(False)
-            label.setText(str(value))
-            
-            # Store as last valid value
-            if axis == 'x':
-                self._last_valid_x = value
-            else:
-                self._last_valid_y = value
-                
-        except ValueError:
-            # Invalid input, revert lineEdit to current slider value
-            lineedit.setText(str(slider.value()))
-    
-    def _update_from_slider(self, value, lineedit, label):
-        """Update lineEdit and label when slider value changes"""
-        lineedit.setText(str(value))
-        label.setText(str(value))
-    
-    def _update_from_lineedit(self, lineedit, slider, label, min_val, max_val):
-        """Update slider and label when button is pressed with lineEdit value"""
-        try:
-            value = int(lineedit.text())
-            if min_val <= value <= max_val:
-                slider.blockSignals(True)  # Prevent triggering slider's valueChanged
+            # Validate range
+            if slider.minimum() <= value <= slider.maximum():
+                slider.blockSignals(True)
                 slider.setValue(value)
                 slider.blockSignals(False)
-                label.setText(str(value))
             else:
-                # Value out of range, revert lineEdit to current slider value
                 lineedit.setText(str(slider.value()))
+                return
         except ValueError:
-            # Invalid input, revert lineEdit to current slider value
             lineedit.setText(str(slider.value()))
+            return
+        
+        # Send command using slider value and current position for other axes
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        # Get the target coordinate from the slider that was changed
+        # Get other coordinates from current actual position
+        if axis == 'x':
+            x = self.xSlider.value()
+            y = self.current_y
+            z = self.current_z
+        elif axis == 'y':
+            x = self.current_x
+            y = self.ySlider.value()
+            z = self.current_z
+        elif axis == 'z':
+            x = self.current_x
+            y = self.current_y
+            z = self.zSlider.value()
+        
+        # Send cartesian command: ix<x>y<y>z<z>
+        command = f"ix{x:.2f}y{y:.2f}z{z:.2f}\n"
+        
+        try:
+            self.serial_connection.write(command.encode())
+            print(f"Sent: {command.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _send_all_cartesian_command(self):
+        """Send cartesian command with all line edit values (synchronizes sliders first)"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        # Synchronize all sliders with their line edits and validate
+        try:
+            # X coordinate
+            x = int(self.xlineEdit.text())
+            if self.xSlider.minimum() <= x <= self.xSlider.maximum():
+                self.xSlider.blockSignals(True)
+                self.xSlider.setValue(x)
+                self.xSlider.blockSignals(False)
+            else:
+                print(f"X value {x} out of range")
+                return
+            
+            # Y coordinate
+            y = int(self.ylineEdit.text())
+            if self.ySlider.minimum() <= y <= self.ySlider.maximum():
+                self.ySlider.blockSignals(True)
+                self.ySlider.setValue(y)
+                self.ySlider.blockSignals(False)
+            else:
+                print(f"Y value {y} out of range")
+                return
+            
+            # Z coordinate
+            z = int(self.zlineEdit.text())
+            if self.zSlider.minimum() <= z <= self.zSlider.maximum():
+                self.zSlider.blockSignals(True)
+                self.zSlider.setValue(z)
+                self.zSlider.blockSignals(False)
+            else:
+                print(f"Z value {z} out of range")
+                return
+                
+        except ValueError:
+            print("Invalid values in line edits")
+            return
+        
+        # Send cartesian command: ix<x>y<y>z<z>
+        command = f"ix{x:.2f}y{y:.2f}z{z:.2f}\n"
+        
+        try:
+            self.serial_connection.write(command.encode())
+            print(f"Sent: {command.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
     
     def _enable_mouse_tracking(self, widget):
         """Recursively enable mouse tracking for widget and all children"""
@@ -604,11 +657,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         gamma_layout.addWidget(self.gamma_slider)
     
     def _connect_sliders_to_robot(self):
-        """Connect ring sliders to robot viewer angles"""
-        if self.robot_viewer:
-            self.theta_slider.valueChanged.connect(self.robot_viewer.set_theta)
-            self.alpha_slider.valueChanged.connect(self.robot_viewer.set_alpha)
-            self.beta_slider.valueChanged.connect(self.robot_viewer.set_beta)
+        """Connect ring sliders to debounced serial command sender"""
+        # Connect sliders to debounce method instead of directly to viewer
+        # Viewer will be updated from Arduino feedback
+        self.theta_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('theta', v))
+        self.alpha_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('alpha', v))
+        self.beta_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('beta', v))
     
     def _setup_3d_viewer(self):
         """Setup the 3D robot viewer and embed it in ThreeDWidget1"""
@@ -1108,9 +1162,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.serial_connection.close()
             
             # Open new connection
-            self.serial_connection = serial.Serial(port_name, baudrate=9600, timeout=1)
+            self.serial_connection = serial.Serial(port_name, baudrate=115200, timeout=1)
             self.connected_port = port_name
             print(f"Connected to {port_name}")
+            
+            # Start serial reading timer
+            self.serial_read_timer.start()
+            
             self._update_com_button_states()
             
         except serial.SerialException as e:
@@ -1120,6 +1178,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def _on_disconnect_com(self):
         """Disconnect from the current COM port"""
+        # Stop timers
+        self.serial_read_timer.stop()
+        self.command_debounce_timer.stop()
+        
         if self.serial_connection and self.serial_connection.is_open:
             try:
                 self.serial_connection.close()
@@ -1129,6 +1191,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self.serial_connection = None
         self.connected_port = None
+        self.serial_buffer = ""  # Clear buffer
         self._update_com_button_states()
     
     def _on_quit_app(self):
@@ -1145,3 +1208,106 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.connectBtn.setEnabled(not is_connected)
         self.disconnectBtn.setEnabled(is_connected)
         self.refreshBtn.setEnabled(not is_connected)
+    
+    def _on_ring_slider_changed(self, slider_name, value):
+        """Handle ring slider changes with debouncing"""
+        # Store the pending value
+        if slider_name == 'theta':
+            self.pending_theta = value
+        elif slider_name == 'alpha':
+            self.pending_alpha = value
+        elif slider_name == 'beta':
+            self.pending_beta = value
+        
+        # Restart the debounce timer (single-shot)
+        self.command_debounce_timer.start()
+    
+    def _send_ring_slider_command(self):
+        """Send ring slider command to Arduino after debounce period"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            return
+        
+        # Get current values from sliders (use pending if set, otherwise current)
+        theta = self.pending_theta if self.pending_theta is not None else self.theta_slider.value()
+        alpha = self.pending_alpha if self.pending_alpha is not None else self.alpha_slider.value()
+        beta = self.pending_beta if self.pending_beta is not None else self.beta_slider.value()
+        
+        # Format command: 'it<theta>a<alpha>b<beta>'
+        command = f"it{theta:.2f}a{alpha:.2f}b{beta:.2f}\n"
+        
+        try:
+            self.serial_connection.write(command.encode())
+            print(f"Sent: {command.strip()}")  # Debug output
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _read_serial_feedback(self):
+        """Read and parse feedback from Arduino"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            return
+        
+        try:
+            # Read available bytes
+            if self.serial_connection.in_waiting > 0:
+                data = self.serial_connection.read(self.serial_connection.in_waiting).decode('utf-8', errors='ignore')
+                self.serial_buffer += data
+                
+                # Process complete lines
+                while '\n' in self.serial_buffer:
+                    line, self.serial_buffer = self.serial_buffer.split('\n', 1)
+                    line = line.strip()
+                    if line:
+                        self._parse_feedback(line)
+        except (serial.SerialException, UnicodeDecodeError) as e:
+            print(f"Serial read error: {e}")
+    
+    def _parse_feedback(self, line):
+        """Parse Arduino feedback, update 3D viewer and cartesian labels"""
+        # Feedback format: "t<theta>a<alpha>b<beta>" or "d<date>t<theta>a<alpha>b<beta>"
+        try:
+            # Remove optional date prefix if present
+            if line.startswith('d'):
+                # Find where theta starts
+                t_index = line.find('t')
+                if t_index == -1:
+                    return
+                line = line[t_index:]  # Strip everything before 't'
+            
+            # Now parse: t<theta>a<alpha>b<beta>
+            if not line.startswith('t'):
+                return
+            
+            # Extract values
+            parts = line[1:].replace('a', ' ').replace('b', ' ').split()
+            if len(parts) >= 3:
+                theta = float(parts[0])
+                alpha = float(parts[1])
+                beta = float(parts[2])
+                
+                # Convert degrees to radians for kinematics
+                theta_rad = np.radians(theta)
+                alpha_rad = np.radians(alpha)
+                beta_rad = np.radians(beta)
+                gamma_rad = 0.0  # Assume gamma = 0 for now (can be calculated if needed)
+                
+                # Calculate cartesian position using direct kinematics
+                position = direct_kinematics(theta_rad, alpha_rad, beta_rad, gamma_rad)
+                self.current_x = position[0]
+                self.current_y = position[1]
+                self.current_z = position[2]
+                
+                # Update cartesian labels with actual position
+                self.xLabel.setText(f"{self.current_x:.1f}")
+                self.yLabel.setText(f"{self.current_y:.1f}")
+                self.zLabel.setText(f"{self.current_z:.1f}")
+                
+                # Update 3D viewer with actual positions from Arduino
+                if self.robot_viewer:
+                    self.robot_viewer.set_theta(theta)
+                    self.robot_viewer.set_alpha(alpha)
+                    self.robot_viewer.set_beta(beta)
+                
+                print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")  # Debug output
+        except (ValueError, IndexError) as e:
+            print(f"Parse error: {e} - Line: {line}")

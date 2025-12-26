@@ -1,6 +1,6 @@
 import numpy as np
 
-def inverse_kinematics(x_abs, y_abs, z_abs, l1=250, l2=200, l3=150, mu=0):
+def inverse_kinematics(x_abs, y_abs, z_abs, l1=250, l2=200, l3=0, mu=0):
     theta = np.arctan2(y_abs, x_abs) if x_abs !=0 else (1 if y_abs>0 else -1) * np.pi/2
     x_abs = np.sqrt(x_abs**2+y_abs**2)
     x = x_abs - l3*np.cos(mu)
@@ -17,7 +17,7 @@ def inverse_kinematics(x_abs, y_abs, z_abs, l1=250, l2=200, l3=150, mu=0):
         mu + np.pi - a - b - atn #gamma
     ]
 
-def direct_kinematics(theta, alpha, beta, gamma, l1=250, l2=200, l3=150):
+def direct_kinematics(theta, alpha, beta, gamma, l1=250, l2=200, l3=0):
     q1 = np.pi/2 - beta
     q2 = -alpha
     q3 = gamma - alpha
