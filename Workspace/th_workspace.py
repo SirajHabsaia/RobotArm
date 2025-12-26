@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from kinematics import inverse_kinematics, direct_kinematics
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'GUI'))
+from kinematics import inverse_kinematics, direct_kinematics  # type: ignore
 
 l1 = 250
 l2 = 200

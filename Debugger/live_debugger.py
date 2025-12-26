@@ -16,7 +16,7 @@ from plotter import PlotCanvas, update_plots
 # SERIAL READER THREAD
 # =========================
 class SerialThread(QThread):
-    new_sample = Signal(float, float, float)
+    new_sample = Signal(float, float, float, float)  # time, theta, a, b
 
     def __init__(self, port, baud=115200):
         super().__init__()
@@ -38,15 +38,16 @@ class SerialThread(QThread):
                 if not line:
                     continue
 
-                # Expected: t0.050a0.00b0.00
-                if not (line.startswith("t") and "a" in line and "b" in line):
+                # Expected: d<time>t<theta>a<angle1>b<angle2>
+                if not (line.startswith("d") and "t" in line and "a" in line and "b" in line):
                     continue
 
-                t = float(line.split("a")[0][1:])
+                t = float(line.split("t")[0][1:])  # Extract time after 'd'
+                theta = float(line.split("t")[1].split("a")[0])  # Extract theta
                 a = float(line.split("a")[1].split("b")[0])
                 b = float(line.split("b")[1])
 
-                self.new_sample.emit(t, a, b)
+                self.new_sample.emit(t, theta, a, b)
 
             except:
                 pass
@@ -79,6 +80,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Robot Arm Debugger")
 
         self.time = []
+        self.theta = []
         self.a = []
         self.b = []
 
@@ -148,6 +150,7 @@ class MainWindow(QMainWindow):
                 return
 
             self.time.clear()
+            self.theta.clear()
             self.a.clear()
             self.b.clear()
 
@@ -162,8 +165,9 @@ class MainWindow(QMainWindow):
             self.connect_btn.setText("Connect")
             self.send_btn.setEnabled(False)
 
-    def on_sample(self, t, a, b):
+    def on_sample(self, t, theta, a, b):
         self.time.append(t)
+        self.theta.append(theta)
         self.a.append(a)
         self.b.append(b)
 
@@ -184,6 +188,7 @@ class MainWindow(QMainWindow):
     def clear_data(self):
         """Clear all data and graphs without disconnecting serial."""
         self.time.clear()
+        self.theta.clear()
         self.a.clear()
         self.b.clear()
         
@@ -195,7 +200,7 @@ class MainWindow(QMainWindow):
         print("Data cleared")
 
     def update_plots(self):
-        update_plots(self.canvas, self.time, self.a, self.b,
+        update_plots(self.canvas, self.time, self.theta, self.a, self.b,
                     show_raw=self.show_raw_cb.isChecked(),
                     show_smoothed=self.show_smoothed_cb.isChecked())
 

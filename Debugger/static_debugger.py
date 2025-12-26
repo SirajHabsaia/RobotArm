@@ -19,6 +19,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Offline Robot Arm Debugger")
 
         self.time = []
+        self.theta = []
         self.a = []
         self.b = []
 
@@ -58,21 +59,24 @@ class MainWindow(QMainWindow):
             return
 
         self.time.clear()
+        self.theta.clear()
         self.a.clear()
         self.b.clear()
 
         with open(file_path, "r") as f:
             for line in f:
                 line = line.strip()
-                if not (line.startswith("t") and "a" in line and "b" in line):
+                if not (line.startswith("d") and "t" in line and "a" in line and "b" in line):
                     continue
 
                 try:
-                    t = float(line.split("a")[0][1:])
+                    t = float(line.split("t")[0][1:])  # Extract time after 'd'
+                    theta = float(line.split("t")[1].split("a")[0])  # Extract theta
                     a = float(line.split("a")[1].split("b")[0])
                     b = float(line.split("b")[1])
 
                     self.time.append(t)
+                    self.theta.append(theta)
                     self.a.append(a)
                     self.b.append(b)
                 except:
@@ -87,7 +91,7 @@ class MainWindow(QMainWindow):
     # PLOTTING
     # =========================
     def update_plots(self):
-        update_plots(self.canvas, self.time, self.a, self.b,
+        update_plots(self.canvas, self.time, self.theta, self.a, self.b,
                     show_raw=self.show_raw_cb.isChecked(),
                     show_smoothed=self.show_smoothed_cb.isChecked())
 

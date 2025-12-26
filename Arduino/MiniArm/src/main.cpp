@@ -269,8 +269,29 @@ void readSerial() {
                 target_angle_interpolation[1] = angle2_str.toFloat();
                 
                 begin_interpolate();
+            
             } else {
-                Serial.println("Invalid format. Use: a<angle1>b<angle2>");
+                // Parse format: x<x>y<y>z<z>
+                int x_idx = line.indexOf('x');
+                int y_idx = line.indexOf('y');
+                int z_idx = line.indexOf('z');
+
+                if (x_idx != -1 && y_idx != -1 && z_idx != -1 && y_idx > x_idx && z_idx > y_idx) {
+                    String x_str = line.substring(x_idx + 1, y_idx);
+                    String y_str = line.substring(y_idx + 1, z_idx);
+                    String z_str = line.substring(z_idx + 1);
+                    
+                    float x = x_str.toFloat();
+                    float z = z_str.toFloat();
+
+                    inverse_kinematics(x, z);
+                    target_angle_interpolation[0] = calculated_inverse[0];
+                    target_angle_interpolation[1] = calculated_inverse[1];
+
+                    begin_interpolate();
+                } else {
+                    Serial.println("Invalid format. Use: a<angle1>b<angle2> or x<x>y<y>z<z>");
+                }
             }
         } else if (c == 'c') { //circle
             String line = Serial.readStringUntil('\n');
@@ -351,15 +372,20 @@ void readSerial() {
 unsigned long last_feedback_time = 0;
 unsigned long feedback_interval = 50e3; //us
 bool feedback_enabled = true;
+bool time_feedback_enabled = false;
 
 void feedback() {
     if (!feedback_enabled || !currently_following_trajectory) return;
     current_time_micros = micros();
     if (current_time_micros - last_feedback_time >= feedback_interval) {
         last_feedback_time = current_time_micros;
-        // t<time>a<angle1>b<angle2>
+        // d<time>t<theta>a<angle1>b<angle2>
+        if (time_feedback_enabled) {
+            Serial.print("d");
+            Serial.print((current_time_micros - trajectory_start_us)/1e6f, 3);
+        }
         Serial.print("t");
-        Serial.print((current_time_micros - trajectory_start_us)/1e6f, 3);
+        Serial.print(0); //theta later
         Serial.print("a");
         Serial.print(current_angle[0], 2);
         Serial.print("b");
@@ -374,8 +400,10 @@ void setup() {
         pinMode(DIR[j], OUTPUT);
     }
     
-    Serial.println("2-Joint Stepper Controller Ready");
-    Serial.println("Send commands as: a<angle1>b<angle2>");
+    Serial.println("Available commands:");
+    Serial.println("Interpolation: ia<angle1>b<angle2> or ix<x>y<y>z<z>");
+    Serial.println("Line: lx<line_goal_x>y<line_goal_y>");
+    Serial.println("Circle: cr<radius>x<center_x>y<center_y>");
 
 }
 

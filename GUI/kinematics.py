@@ -1,7 +1,7 @@
 import numpy as np
 
 def inverse_kinematics(x_abs, y_abs, z_abs, l1=250, l2=200, l3=150, mu=0):
-    theta = np.arctan2(y_abs, x_abs) if x_abs !=0 else (y_abs>0) * np.pi/2
+    theta = np.arctan2(y_abs, x_abs) if x_abs !=0 else (1 if y_abs>0 else -1) * np.pi/2
     x_abs = np.sqrt(x_abs**2+y_abs**2)
     x = x_abs - l3*np.cos(mu)
     z = z_abs - l3*np.sin(mu)

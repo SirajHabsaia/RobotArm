@@ -40,7 +40,6 @@ htmlcov/
 .vscode/
 .pio/
 .history/
-include/
 lib/
 test/
 platformio.ini
