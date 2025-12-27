@@ -167,14 +167,12 @@ class RobotPart:
                         face_color_list.append((face, sub_color))
                         explorer.Next()
         
-        # print(f"  Found {len(face_color_list)} colored faces")
-        
         # Get the top-level shape to mesh
         free_labels_mesh = TDF_LabelSequence()
         shape_tool.GetFreeShapes(free_labels_mesh)
         
         if free_labels_mesh.Length() == 0:
-            print("  No shapes found")
+            print("No shapes found")
             return
         
         main_shape = shape_tool.GetShape_s(free_labels_mesh.Value(1))
@@ -277,14 +275,11 @@ class RobotPart:
 
 
 class RobotVTKWidget(QWidget):
-    """VTK widget for displaying the 3D robot simulation.
-    This widget contains only the 3D viewer without controls.
-    Can be embedded in other UIs or used standalone."""
     
     CAMERA_POSITION = [854.7, 472.8, 1039.5]
     CAMERA_FOCAL_POINT = [16.6, 268.2, 35.0]
     CAMERA_VIEW_UP = [-0.108724, 0.987913, -0.110486]
-    CAMERA_ZOOM = 1.0  # Adjust if needed
+    CAMERA_ZOOM = 1.0
 
     def __init__(self, parent=None, interactive=True):
         super().__init__(parent)
@@ -347,107 +342,82 @@ class RobotVTKWidget(QWidget):
     
     def load_models(self, models_dir):
         """Load robot STEP models"""
-        # Load support_nacelle (base)
         support_file = models_dir / "support_nacelle.STEP"
         if support_file.exists():
             self.support_nacelle = RobotPart(support_file)
             if self.support_nacelle.actor:
                 self.renderer.AddActor(self.support_nacelle.actor)
         
-        # Load nacelle (rotating base)
         nacelle_file = models_dir / "nacelle.STEP"
         if nacelle_file.exists():
             self.nacelle = RobotPart(nacelle_file)
             if self.nacelle.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.nacelle.actor)
         
-        # Load manivelle
         manivelle_file = models_dir / "manivelle.STEP"
         if manivelle_file.exists():
             self.manivelle = RobotPart(manivelle_file)
             if self.manivelle.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.manivelle.actor)
         
-        # Load bras1
         bras1_file = models_dir / "bras1.STEP"
         if bras1_file.exists():
             self.bras1 = RobotPart(bras1_file)
             if self.bras1.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.bras1.actor)
 
-        # Load bras2
         bras2_file = models_dir / "bras2.STEP"
         if bras2_file.exists():
             self.bras2 = RobotPart(bras2_file)
             if self.bras2.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.bras2.actor)
         
-        # Load bielle
         bielle_file = models_dir / "bielle.STEP"
         if bielle_file.exists():
             self.bielle = RobotPart(bielle_file)
             if self.bielle.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.bielle.actor)
 
-        # Load pince
         pince_file = models_dir / "pince.STEP"
         if pince_file.exists():
             self.pince = RobotPart(pince_file)
             if self.pince.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.pince.actor)
 
-        # Load gear_right
         gear_right_file = models_dir / "gear.STEP"
         if gear_right_file.exists():
             self.gear_right = RobotPart(gear_right_file)
             if self.gear_right.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.gear_right.actor)
 
-        # Load gear_left
         gear_left_file = models_dir / "gear.STEP"
         if gear_left_file.exists():
             self.gear_left = RobotPart(gear_left_file)
             if self.gear_left.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.gear_left.actor)
 
-        # Load link_right
         link_right_file = models_dir / "link.STEP"
         if link_right_file.exists():
             self.link_right = RobotPart(link_right_file)
             if self.link_right.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.link_right.actor)
 
-        # Load link_left
         link_left_file = models_dir / "link.STEP"
         if link_left_file.exists():
             self.link_left = RobotPart(link_left_file)
             if self.link_left.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.link_left.actor)
 
-        # Load finger_right
         finger_right_file = models_dir / "finger.STEP"
         if finger_right_file.exists():
             self.finger_right = RobotPart(finger_right_file)
             if self.finger_right.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.finger_right.actor)
 
-        # Load finger_left
         finger_left_file = models_dir / "finger.STEP"
         if finger_left_file.exists():
             self.finger_left = RobotPart(finger_left_file)
             if self.finger_left.actor:
-                # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.finger_left.actor)
 
         # Apply initial transforms
@@ -464,42 +434,34 @@ class RobotVTKWidget(QWidget):
         self.vtk_widget.GetRenderWindow().Render()
     
     def set_theta(self, angle):
-        """Set joint 1 rotation (base rotation around Y)"""
         self.theta_angle = angle
         self.update_transforms()
     
     def set_alpha(self, angle):
-        """Set joint 2 rotation"""
         self.alpha_angle = angle
         self.update_transforms()
     
     def set_beta(self, angle):
-        """Set beta rotation"""
         self.beta_angle = angle
         self.update_transforms()
     
     def set_mu(self, angle):
-        """Set mu rotation"""
         self.mu_angle = angle
         self.update_transforms()
     
     def set_gripper(self, angle):
-        """Set gripper rotation"""
         self.gripper_angle = angle
         self.update_transforms()
     
     def set_user_x(self, value):
-        """Set user X value"""
         self.user_x = value
         self.update_transforms()
     
     def set_user_y(self, value):
-        """Set user Y value"""
         self.user_y = value
         self.update_transforms()
     
     def set_user_z(self, value):
-        """Set user Z value"""
         self.user_z = value
         self.update_transforms()
     
@@ -510,15 +472,13 @@ class RobotVTKWidget(QWidget):
             self.support_nacelle.actor.SetUserTransform(transform)
         
         if self.nacelle and self.nacelle.actor:
-            # Create transform for nacelle (rotating base)
             transform = vtkTransform()
             transform.Translate(0, 125, 0)
-            transform.RotateY(self.theta_angle)  # Rotate around Y-axis at this position
+            transform.RotateY(self.theta_angle)
             
             self.nacelle.actor.SetUserTransform(transform)
         
         if self.manivelle and self.manivelle.actor:
-            # Create transform for manivelle
             transform = vtkTransform()
             transform.Translate(-45, 157, 0)
             transform.Translate(45, 0, 0)
@@ -529,7 +489,6 @@ class RobotVTKWidget(QWidget):
             self.manivelle.actor.SetUserTransform(transform)
         
         if self.bras1 and self.bras1.actor:
-            # Create transform for bras1 (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -538,7 +497,6 @@ class RobotVTKWidget(QWidget):
             self.bras1.actor.SetUserTransform(transform)
         
         if self.bras2 and self.bras2.actor:
-            # Create transform for bras2 (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 407, 0)
             transform.RotateY(self.theta_angle)
@@ -551,7 +509,6 @@ class RobotVTKWidget(QWidget):
             self.bras2.actor.SetUserTransform(transform)
         
         if self.bielle and self.bielle.actor:
-            # Create transform for bielle (you can adjust these values)
             transform = vtkTransform()
             transform.RotateY(self.theta_angle)
             transform.Translate(-18, 157, -59)
@@ -565,7 +522,6 @@ class RobotVTKWidget(QWidget):
             self.bielle.actor.SetUserTransform(transform)
 
         if self.pince and self.pince.actor:
-            # Create transform for pince (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -580,7 +536,6 @@ class RobotVTKWidget(QWidget):
             self.pince.actor.SetUserTransform(transform)
 
         if self.gear_right and self.gear_right.actor:
-            # Create transform for gear_right (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -599,7 +554,6 @@ class RobotVTKWidget(QWidget):
             self.gear_right.actor.SetUserTransform(transform)
 
         if self.gear_left and self.gear_left.actor:
-            # Create transform for gear_left (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -618,7 +572,6 @@ class RobotVTKWidget(QWidget):
             self.gear_left.actor.SetUserTransform(transform)
 
         if self.link_right and self.link_right.actor:
-            # Create transform for link_right (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -637,7 +590,6 @@ class RobotVTKWidget(QWidget):
             self.link_right.actor.SetUserTransform(transform)
 
         if self.link_left and self.link_left.actor:
-            # Create transform for link_left (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -655,7 +607,6 @@ class RobotVTKWidget(QWidget):
             self.link_left.actor.SetUserTransform(transform)
 
         if self.finger_right and self.finger_right.actor:
-            # Create transform for finger_right (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -676,7 +627,6 @@ class RobotVTKWidget(QWidget):
             self.finger_right.actor.SetUserTransform(transform)
 
         if self.finger_left and self.finger_left.actor:
-            # Create transform for finger_left (you can adjust these values)
             transform = vtkTransform()
             transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
@@ -721,9 +671,6 @@ class RobotVTKWidget(QWidget):
         print(f"CAMERA_POSITION = [{position[0]:.1f}, {position[1]:.1f}, {position[2]:.1f}]")
         print(f"CAMERA_FOCAL_POINT = [{focal_point[0]:.1f}, {focal_point[1]:.1f}, {focal_point[2]:.1f}]")
         print(f"CAMERA_VIEW_UP = [{view_up[0]:.6f}, {view_up[1]:.6f}, {view_up[2]:.6f}]")
-        print(f"CAMERA_ZOOM = 1.0  # Adjust if needed")
-        print("="*60)
-        print("Copy these values to the class variables at the top of RobotVTKWidget")
         print("="*60 + "\n")
 
 
