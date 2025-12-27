@@ -325,11 +325,20 @@ class RobotVTKWidget(QWidget):
         self.bras1 = None
         self.bras2 = None
         self.bielle = None
+        self.pince = None
+        self.gear_right = None
+        self.gear_left = None
+        self.link_right = None
+        self.link_left = None
+        self.finger_right = None
+        self.finger_left = None
         
         # Joint angles
         self.theta_angle = 0
         self.alpha_angle = 0
         self.beta_angle = 0
+        self.mu_angle = 0
+        self.gripper_angle = 0
         
         # User-adjustable values
         self.user_x = 0
@@ -385,6 +394,62 @@ class RobotVTKWidget(QWidget):
                 # Initial position will be set by update_transforms
                 self.renderer.AddActor(self.bielle.actor)
 
+        # Load pince
+        pince_file = models_dir / "pince.STEP"
+        if pince_file.exists():
+            self.pince = RobotPart(pince_file)
+            if self.pince.actor:
+                # Initial position will be set by update_transforms
+                self.renderer.AddActor(self.pince.actor)
+
+        # Load gear_right
+        gear_right_file = models_dir / "gear.STEP"
+        if gear_right_file.exists():
+            self.gear_right = RobotPart(gear_right_file)
+            if self.gear_right.actor:
+                # Initial position will be set by update_transforms
+                self.renderer.AddActor(self.gear_right.actor)
+
+        # Load gear_left
+        gear_left_file = models_dir / "gear.STEP"
+        if gear_left_file.exists():
+            self.gear_left = RobotPart(gear_left_file)
+            if self.gear_left.actor:
+                # Initial position will be set by update_transforms
+                self.renderer.AddActor(self.gear_left.actor)
+
+        # Load link_right
+        link_right_file = models_dir / "link.STEP"
+        if link_right_file.exists():
+            self.link_right = RobotPart(link_right_file)
+            if self.link_right.actor:
+                # Initial position will be set by update_transforms
+                self.renderer.AddActor(self.link_right.actor)
+
+        # Load link_left
+        link_left_file = models_dir / "link.STEP"
+        if link_left_file.exists():
+            self.link_left = RobotPart(link_left_file)
+            if self.link_left.actor:
+                # Initial position will be set by update_transforms
+                self.renderer.AddActor(self.link_left.actor)
+
+        # Load finger_right
+        finger_right_file = models_dir / "finger.STEP"
+        if finger_right_file.exists():
+            self.finger_right = RobotPart(finger_right_file)
+            if self.finger_right.actor:
+                # Initial position will be set by update_transforms
+                self.renderer.AddActor(self.finger_right.actor)
+
+        # Load finger_left
+        finger_left_file = models_dir / "finger.STEP"
+        if finger_left_file.exists():
+            self.finger_left = RobotPart(finger_left_file)
+            if self.finger_left.actor:
+                # Initial position will be set by update_transforms
+                self.renderer.AddActor(self.finger_left.actor)
+
         # Apply initial transforms
         self.update_transforms()
         
@@ -413,6 +478,16 @@ class RobotVTKWidget(QWidget):
         self.beta_angle = angle
         self.update_transforms()
     
+    def set_mu(self, angle):
+        """Set mu rotation"""
+        self.mu_angle = angle
+        self.update_transforms()
+    
+    def set_gripper(self, angle):
+        """Set gripper rotation"""
+        self.gripper_angle = angle
+        self.update_transforms()
+    
     def set_user_x(self, value):
         """Set user X value"""
         self.user_x = value
@@ -432,14 +507,12 @@ class RobotVTKWidget(QWidget):
         """Update robot transformations based on joint angles"""
         if self.support_nacelle and self.support_nacelle.actor:
             transform = vtkTransform()
-            transform.RotateY(180)
             self.support_nacelle.actor.SetUserTransform(transform)
         
         if self.nacelle and self.nacelle.actor:
             # Create transform for nacelle (rotating base)
             transform = vtkTransform()
-            transform.RotateY(180)
-            transform.Translate(10, 125, 0)  # Move to position (10mm right, 125mm up)
+            transform.Translate(0, 125, 0)
             transform.RotateY(self.theta_angle)  # Rotate around Y-axis at this position
             
             self.nacelle.actor.SetUserTransform(transform)
@@ -447,63 +520,182 @@ class RobotVTKWidget(QWidget):
         if self.manivelle and self.manivelle.actor:
             # Create transform for manivelle
             transform = vtkTransform()
-            transform.RotateY(-90)
-            transform.Translate(0, 157, 10)
+            transform.Translate(-45, 157, 0)
+            transform.Translate(45, 0, 0)
             transform.RotateY(self.theta_angle)
-            transform.Translate(0, 0, -43)
-            transform.RotateZ(180)
-            transform.RotateZ(-self.alpha_angle)
+            transform.Translate(-45, 0, 0)
+            transform.RotateX(self.alpha_angle)
             
             self.manivelle.actor.SetUserTransform(transform)
         
         if self.bras1 and self.bras1.actor:
             # Create transform for bras1 (you can adjust these values)
             transform = vtkTransform()
-            transform.RotateY(-90)
-            transform.Translate(0, 157, 10)
+            transform.Translate(0, 157, 0)
             transform.RotateY(self.theta_angle)
-            transform.Translate(0, 0, 26)
-            transform.RotateZ(-self.beta_angle)
+            transform.RotateX(self.beta_angle)
             
             self.bras1.actor.SetUserTransform(transform)
         
         if self.bras2 and self.bras2.actor:
             # Create transform for bras2 (you can adjust these values)
             transform = vtkTransform()
-            transform.RotateZ(180)
-            transform.RotateY(90)
-            transform.Translate(0, -407, 10)
-            transform.RotateY(-self.theta_angle)
-            transform.Translate(0, 0, 5)
-            transform.Translate(0, 250, 0)
-            transform.RotateZ(-self.beta_angle)
+            transform.Translate(0, 407, 0)
+            transform.RotateY(self.theta_angle)
             transform.Translate(0, -250, 0)
-            transform.RotateZ(-self.alpha_angle)
-            transform.RotateZ(self.beta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(self.alpha_angle)
+            transform.RotateX(-self.beta_angle)
             
             self.bras2.actor.SetUserTransform(transform)
         
         if self.bielle and self.bielle.actor:
             # Create transform for bielle (you can adjust these values)
             transform = vtkTransform()
-            transform.RotateY(180)
-            #transform.Translate(self.user_x, self.user_y, self.user_z)
-            transform.Translate(-46, 149, 10)
-            transform.Translate(55, 0, -10)
             transform.RotateY(self.theta_angle)
-            transform.Translate(-55, 0, 10)
+            transform.Translate(-18, 157, -59)
 
-            transform.Translate(0, 0, -60)
-            transform.RotateX(-self.alpha_angle)
-            transform.Translate(0, 0, 60)
+            transform.Translate(0, 0, 59)
             transform.RotateX(self.alpha_angle)
-
-            transform.Translate(0, 8, 48)
-            transform.RotateX(-self.beta_angle)
-            transform.Translate(0, -8, -48)
-            #transform.RotateX(-self.beta_angle)
+            transform.Translate(0, 0, -59)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(self.beta_angle)
             
             self.bielle.actor.SetUserTransform(transform)
+
+        if self.pince and self.pince.actor:
+            # Create transform for pince (you can adjust these values)
+            transform = vtkTransform()
+            transform.Translate(0, 157, 0)
+            transform.RotateY(self.theta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(-self.beta_angle)
+            transform.RotateX(self.alpha_angle)
+            transform.Translate(0, 0, 200)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(-self.mu_angle)
+            
+            self.pince.actor.SetUserTransform(transform)
+
+        if self.gear_right and self.gear_right.actor:
+            # Create transform for gear_right (you can adjust these values)
+            transform = vtkTransform()
+            transform.Translate(0, 157, 0)
+            transform.RotateY(self.theta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(-self.beta_angle)
+            transform.RotateX(self.alpha_angle)
+            transform.Translate(0, 0, 200)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(-self.mu_angle)
+
+            transform.Translate(-16.5, -14, 85.5)
+            transform.RotateY(-90)
+            transform.RotateY(self.gripper_angle)
+            
+            self.gear_right.actor.SetUserTransform(transform)
+
+        if self.gear_left and self.gear_left.actor:
+            # Create transform for gear_left (you can adjust these values)
+            transform = vtkTransform()
+            transform.Translate(0, 157, 0)
+            transform.RotateY(self.theta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(-self.beta_angle)
+            transform.RotateX(self.alpha_angle)
+            transform.Translate(0, 0, 200)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(-self.mu_angle)
+
+            transform.Translate(16.5, -14, 85.5)
+            transform.RotateY(90)
+            transform.RotateY(-self.gripper_angle)
+            
+            self.gear_left.actor.SetUserTransform(transform)
+
+        if self.link_right and self.link_right.actor:
+            # Create transform for link_right (you can adjust these values)
+            transform = vtkTransform()
+            transform.Translate(0, 157, 0)
+            transform.RotateY(self.theta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(-self.beta_angle)
+            transform.RotateX(self.alpha_angle)
+            transform.Translate(0, 0, 200)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(-self.mu_angle)
+
+            transform.Translate(-10, -14, 123)
+            transform.RotateY(180)
+            transform.RotateY(self.gripper_angle)
+            
+            self.link_right.actor.SetUserTransform(transform)
+
+        if self.link_left and self.link_left.actor:
+            # Create transform for link_left (you can adjust these values)
+            transform = vtkTransform()
+            transform.Translate(0, 157, 0)
+            transform.RotateY(self.theta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(-self.beta_angle)
+            transform.RotateX(self.alpha_angle)
+            transform.Translate(0, 0, 200)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(-self.mu_angle)
+
+            transform.Translate(10, -14, 123)
+            transform.RotateY(-self.gripper_angle)
+            
+            self.link_left.actor.SetUserTransform(transform)
+
+        if self.finger_right and self.finger_right.actor:
+            # Create transform for finger_right (you can adjust these values)
+            transform = vtkTransform()
+            transform.Translate(0, 157, 0)
+            transform.RotateY(self.theta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(-self.beta_angle)
+            transform.RotateX(self.alpha_angle)
+            transform.Translate(0, 0, 200)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(-self.mu_angle)
+
+            transform.Translate(-46.5, -24, 85.5)
+            transform.Translate(30, 0, 0)
+            transform.RotateY(self.gripper_angle)
+            transform.Translate(-30, 0, 0)
+            transform.RotateY(-self.gripper_angle)
+            
+            self.finger_right.actor.SetUserTransform(transform)
+
+        if self.finger_left and self.finger_left.actor:
+            # Create transform for finger_left (you can adjust these values)
+            transform = vtkTransform()
+            transform.Translate(0, 157, 0)
+            transform.RotateY(self.theta_angle)
+            transform.RotateX(self.beta_angle)
+            transform.Translate(0, 250, 0)
+            transform.RotateX(-self.beta_angle)
+            transform.RotateX(self.alpha_angle)
+            transform.Translate(0, 0, 200)
+            transform.RotateX(-self.alpha_angle)
+            transform.RotateX(-self.mu_angle)
+            
+            transform.RotateZ(180)
+            transform.Translate(-46.5, 24, 85.5)
+            transform.Translate(30, 0, 0)
+            transform.RotateY(self.gripper_angle)
+            transform.Translate(-30, 0, 0)
+            transform.RotateY(-self.gripper_angle)
+            
+            self.finger_left.actor.SetUserTransform(transform)
 
         self.vtk_widget.GetRenderWindow().Render()
     
@@ -587,6 +779,26 @@ class MainWindow(QMainWindow):
         self.beta_label = QLabel("0°")
         controls_layout.addWidget(self.beta_label)
 
+        # Mu slider
+        controls_layout.addWidget(QLabel("mu:"))
+        self.mu_slider = QSlider(Qt.Horizontal)
+        self.mu_slider.setRange(-90, 90)
+        self.mu_slider.setValue(0)
+        self.mu_slider.valueChanged.connect(self.on_mu_changed)
+        controls_layout.addWidget(self.mu_slider)
+        self.mu_label = QLabel("0°")
+        controls_layout.addWidget(self.mu_label)
+
+        # Gripper slider
+        controls_layout.addWidget(QLabel("gripper:"))
+        self.gripper_slider = QSlider(Qt.Horizontal)
+        self.gripper_slider.setRange(-90, 90)
+        self.gripper_slider.setValue(0)
+        self.gripper_slider.valueChanged.connect(self.on_gripper_changed)
+        controls_layout.addWidget(self.gripper_slider)
+        self.gripper_label = QLabel("0°")
+        controls_layout.addWidget(self.gripper_label)
+
         # User X slider
         controls_layout.addWidget(QLabel("User X:"))
         self.user_x_slider = QSlider(Qt.Horizontal)
@@ -642,6 +854,14 @@ class MainWindow(QMainWindow):
     def on_beta_changed(self, value):
         self.beta_label.setText(f"{value}°")
         self.viewer.set_beta(value)
+
+    def on_mu_changed(self, value):
+        self.mu_label.setText(f"{value}°")
+        self.viewer.set_mu(value)
+
+    def on_gripper_changed(self, value):
+        self.gripper_label.setText(f"{value}°")
+        self.viewer.set_gripper(value)
 
     def on_user_x_changed(self, value):
         self.user_x_label.setText(f"{value}")
