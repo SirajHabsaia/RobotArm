@@ -16,4 +16,7 @@ void interpolation_trajectory(float t);
 // Begin interpolation movement
 void begin_interpolate();
 
+// Execute a list of waypoints
+void execute_waypoint_list();
+
 #endif // TRAJECTORY_H

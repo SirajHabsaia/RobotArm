@@ -1,6 +1,7 @@
 #include "trajectory.h"
 #include "config.h"
-#include "stepper.h"
+#include "control.h"
+#include "kinematics.h"
 #include <math.h>
 
 void begin_trajectory() {
@@ -21,6 +22,7 @@ void follow_trajectory(void (*trajectory_func)(float)) {
         currently_interpolating = false;
         currently_drawing_circle = false;
         currently_drawing_line = false;
+        if (executing_list) done_waypoint = true;
 
         Serial.print("Completed at [");
         for (uint8_t j = 0; j < N; j++) {
@@ -30,16 +32,15 @@ void follow_trajectory(void (*trajectory_func)(float)) {
         Serial.println("]");
 
         return;
+
     }
     
     trajectory_func(t);
     
     for (uint8_t j = 0; j < N; j++) {
         difference_angle_trajectory[j] = target_angle_snap[j] - current_angle[j];
-
-        if (abs(difference_angle_trajectory[j]) > (360.0 / RESOLUTION[j])) {
-            movestep(j, (difference_angle_trajectory[j] > 0));
-        }
+        int req_steps = round(abs(difference_angle_trajectory[j]) / (360.0 / RESOLUTION[j]));
+        for (int step = 0; step < req_steps; step++) movestep(j, difference_angle_trajectory[j] > 0.0);
     }
 }
 
@@ -103,13 +104,15 @@ void calculate_interpolation() {
     }
 
     Serial.print("\nMoving from [");
-    Serial.print(current_angle[0]);
-    Serial.print(", ");
-    Serial.print(current_angle[1]);
+    for (uint8_t j = 0; j < N; j++) {
+        Serial.print(initial_angle[j], 4);
+        if (j < N - 1) Serial.print(", ");
+    }
     Serial.print("] to [");
-    Serial.print(target_angle_interpolation[0]);
-    Serial.print(", ");
-    Serial.print(target_angle_interpolation[1]);
+    for (uint8_t j = 0; j < N; j++) {
+        Serial.print(target_angle_interpolation[j], 4);
+        if (j < N - 1) Serial.print(", ");
+    }
     Serial.print("] in ");
     Serial.print(T, 4);
     Serial.println(" seconds.");
@@ -135,4 +138,36 @@ void begin_interpolate() {
 
     currently_interpolating = true;
     begin_trajectory();
+}
+
+void execute_waypoint_list() {
+    if (!executing_list) return;
+    if (currently_following_trajectory) return;
+    if (waypoint_index >= waypoint_count) {
+        executing_list = false;
+        waypoint_index = 0;
+        Serial.println("Completed waypoint list execution.");
+        return;
+    }
+    if (!done_waypoint) {
+        return;
+    }
+    delay(100);
+    move_gripper(waypoint_buffer[waypoint_index].coord[4]);
+    delay(100);
+    goal_mu = waypoint_buffer[waypoint_index].coord[3];
+    update_gripper = true;
+
+    inverse_kinematics(
+        waypoint_buffer[waypoint_index].coord[0],
+        waypoint_buffer[waypoint_index].coord[1],
+        waypoint_buffer[waypoint_index].coord[2]
+    );
+    for (uint8_t j = 0; j < N; j++) {
+        target_angle_interpolation[j] = calculated_inverse[j];
+    }
+    
+    waypoint_index++;
+    done_waypoint = false;
+    begin_interpolate();
 }

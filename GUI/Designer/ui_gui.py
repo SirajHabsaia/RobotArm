@@ -332,10 +332,30 @@ class Ui_MainWindow(object):
         icon6 = QIcon()
         icon6.addFile(u":/images/menu.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.SidebarBtn.setIcon(icon6)
-        self.SidebarBtn.setIconSize(QSize(32, 32))
+        self.SidebarBtn.setIconSize(QSize(28, 28))
         self.SidebarBtn.setCheckable(True)
 
         self.horizontalLayout_4.addWidget(self.SidebarBtn)
+
+        self.resetLeftBtn = QPushButton(self.title_widget)
+        self.resetLeftBtn.setObjectName(u"resetLeftBtn")
+        icon7 = QIcon()
+        icon7.addFile(u":/images/reset_left.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.resetLeftBtn.setIcon(icon7)
+        self.resetLeftBtn.setIconSize(QSize(24, 24))
+        self.resetLeftBtn.setCheckable(True)
+
+        self.horizontalLayout_4.addWidget(self.resetLeftBtn)
+
+        self.resetRightBtn = QPushButton(self.title_widget)
+        self.resetRightBtn.setObjectName(u"resetRightBtn")
+        icon8 = QIcon()
+        icon8.addFile(u":/images/reset_right.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.resetRightBtn.setIcon(icon8)
+        self.resetRightBtn.setIconSize(QSize(24, 24))
+        self.resetRightBtn.setCheckable(True)
+
+        self.horizontalLayout_4.addWidget(self.resetRightBtn)
 
         self.horizontalSpacer_6 = QSpacerItem(303, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -357,9 +377,9 @@ class Ui_MainWindow(object):
         self.MinimizeBtn = QPushButton(self.title_widget)
         self.MinimizeBtn.setObjectName(u"MinimizeBtn")
         self.MinimizeBtn.setMinimumSize(QSize(32, 32))
-        icon7 = QIcon()
-        icon7.addFile(u":/images/minimize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.MinimizeBtn.setIcon(icon7)
+        icon9 = QIcon()
+        icon9.addFile(u":/images/minimize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.MinimizeBtn.setIcon(icon9)
         self.MinimizeBtn.setIconSize(QSize(20, 20))
 
         self.horizontalLayout_4.addWidget(self.MinimizeBtn)
@@ -367,9 +387,9 @@ class Ui_MainWindow(object):
         self.MaximizeBtn = QPushButton(self.title_widget)
         self.MaximizeBtn.setObjectName(u"MaximizeBtn")
         self.MaximizeBtn.setMinimumSize(QSize(32, 32))
-        icon8 = QIcon()
-        icon8.addFile(u":/images/maximize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.MaximizeBtn.setIcon(icon8)
+        icon10 = QIcon()
+        icon10.addFile(u":/images/maximize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.MaximizeBtn.setIcon(icon10)
         self.MaximizeBtn.setIconSize(QSize(20, 20))
         self.MaximizeBtn.setCheckable(True)
 
@@ -378,9 +398,9 @@ class Ui_MainWindow(object):
         self.CloseBtn = QPushButton(self.title_widget)
         self.CloseBtn.setObjectName(u"CloseBtn")
         self.CloseBtn.setMinimumSize(QSize(32, 32))
-        icon9 = QIcon()
-        icon9.addFile(u":/images/close.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.CloseBtn.setIcon(icon9)
+        icon11 = QIcon()
+        icon11.addFile(u":/images/close.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.CloseBtn.setIcon(icon11)
         self.CloseBtn.setIconSize(QSize(20, 20))
 
         self.horizontalLayout_4.addWidget(self.CloseBtn)
@@ -824,9 +844,9 @@ class Ui_MainWindow(object):
 "	border: none;\n"
 "	background-color: transparent;\n"
 "}")
-        icon10 = QIcon()
-        icon10.addFile(u":/images/send.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.xBtn.setIcon(icon10)
+        icon12 = QIcon()
+        icon12.addFile(u":/images/send.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.xBtn.setIcon(icon12)
         self.xBtn.setIconSize(QSize(16, 16))
 
         self.horizontalLayout_9.addWidget(self.xBtn)
@@ -915,7 +935,7 @@ class Ui_MainWindow(object):
 "	border: none;\n"
 "	background-color: transparent;\n"
 "}")
-        self.yBtn.setIcon(icon10)
+        self.yBtn.setIcon(icon12)
         self.yBtn.setIconSize(QSize(16, 16))
 
         self.horizontalLayout_20.addWidget(self.yBtn)
@@ -1000,7 +1020,7 @@ class Ui_MainWindow(object):
 "	border: none;\n"
 "	background-color: transparent;\n"
 "}")
-        self.zBtn.setIcon(icon10)
+        self.zBtn.setIcon(icon12)
         self.zBtn.setIconSize(QSize(16, 16))
 
         self.horizontalLayout_22.addWidget(self.zBtn)
@@ -1085,7 +1105,7 @@ class Ui_MainWindow(object):
 "	border: none;\n"
 "	background-color: transparent;\n"
 "}")
-        self.muBtn.setIcon(icon10)
+        self.muBtn.setIcon(icon12)
         self.muBtn.setIconSize(QSize(16, 16))
 
         self.horizontalLayout_24.addWidget(self.muBtn)
@@ -1148,8 +1168,8 @@ class Ui_MainWindow(object):
 
         self.sendallBtn = QPushButton(self.sendallWidget)
         self.sendallBtn.setObjectName(u"sendallBtn")
-        self.sendallBtn.setMinimumSize(QSize(0, 30))
-        self.sendallBtn.setMaximumSize(QSize(16777215, 30))
+        self.sendallBtn.setMinimumSize(QSize(100, 30))
+        self.sendallBtn.setMaximumSize(QSize(100, 30))
         self.sendallBtn.setStyleSheet(u"QPushButton {\n"
 "    background-color: transparent;\n"
 "    color: #e6e6e6;\n"
@@ -1157,7 +1177,7 @@ class Ui_MainWindow(object):
 "    border: 2px solid #6a6a6a;   /* visible gray frame */\n"
 "    border-radius: 6px;\n"
 "\n"
-"    padding: 6px 14px;\n"
+"    padding: 6px 2px;\n"
 "    font-size: 14px;\n"
 "}\n"
 "\n"
@@ -1189,6 +1209,54 @@ class Ui_MainWindow(object):
 "")
 
         self.horizontalLayout_19.addWidget(self.sendallBtn)
+
+        self.horizontalSpacer_17 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_19.addItem(self.horizontalSpacer_17)
+
+        self.HomeCmdBtn = QPushButton(self.sendallWidget)
+        self.HomeCmdBtn.setObjectName(u"HomeCmdBtn")
+        self.HomeCmdBtn.setMinimumSize(QSize(50, 30))
+        self.HomeCmdBtn.setMaximumSize(QSize(50, 30))
+        self.HomeCmdBtn.setStyleSheet(u"QPushButton {\n"
+"    background-color: transparent;\n"
+"    color: #e6e6e6;\n"
+"\n"
+"    border: 2px solid #6a6a6a;   /* visible gray frame */\n"
+"    border-radius: 6px;\n"
+"\n"
+"    padding: 6px 2px;\n"
+"    font-size: 14px;\n"
+"}\n"
+"\n"
+"/* Hover: brighter frame + subtle overlay */\n"
+"QPushButton:hover {\n"
+"    border-color: #9a9a9a;\n"
+"    background-color: rgba(255, 255, 255, 0.04);\n"
+"}\n"
+"\n"
+"/* Pressed: darker frame + stronger overlay */\n"
+"QPushButton:pressed {\n"
+"    border-color: #b0b0b0;\n"
+"    background-color: rgba(0, 0, 0, 0.25);\n"
+"    padding-top: 7px;   /* subtle pressed effect */\n"
+"    padding-bottom: 5px;\n"
+"}\n"
+"\n"
+"/* Focus (keyboard navigation) */\n"
+"QPushButton:focus {\n"
+"    border-color: #bfbfbf;\n"
+"}\n"
+"\n"
+"/* Disabled */\n"
+"QPushButton:disabled {\n"
+"    color: #777777;\n"
+"    border-color: #444444;\n"
+"    background-color: transparent;\n"
+"}\n"
+"")
+
+        self.horizontalLayout_19.addWidget(self.HomeCmdBtn)
 
         self.horizontalSpacer_15 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -1579,9 +1647,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon11 = QIcon()
-        icon11.addFile(u":/images/media/minus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.deleteRecording.setIcon(icon11)
+        icon13 = QIcon()
+        icon13.addFile(u":/images/media/minus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.deleteRecording.setIcon(icon13)
         self.deleteRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.deleteRecording)
@@ -1604,9 +1672,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon12 = QIcon()
-        icon12.addFile(u":/images/media/play2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.startRecording.setIcon(icon12)
+        icon14 = QIcon()
+        icon14.addFile(u":/images/media/play2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.startRecording.setIcon(icon14)
         self.startRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.startRecording)
@@ -1629,9 +1697,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon13 = QIcon()
-        icon13.addFile(u":/images/media/pause2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.pauseRecording.setIcon(icon13)
+        icon15 = QIcon()
+        icon15.addFile(u":/images/media/pause2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.pauseRecording.setIcon(icon15)
         self.pauseRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.pauseRecording)
@@ -1654,9 +1722,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon14 = QIcon()
-        icon14.addFile(u":/images/media/stop2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.stopRecording.setIcon(icon14)
+        icon16 = QIcon()
+        icon16.addFile(u":/images/media/stop2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.stopRecording.setIcon(icon16)
         self.stopRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.stopRecording)
@@ -1679,9 +1747,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon15 = QIcon()
-        icon15.addFile(u":/images/media/plus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.addRecording.setIcon(icon15)
+        icon17 = QIcon()
+        icon17.addFile(u":/images/media/plus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.addRecording.setIcon(icon17)
         self.addRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.addRecording)
@@ -1723,9 +1791,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon16 = QIcon()
-        icon16.addFile(u":/images/media/backward.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.previousExec.setIcon(icon16)
+        icon18 = QIcon()
+        icon18.addFile(u":/images/media/backward.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.previousExec.setIcon(icon18)
         self.previousExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.previousExec)
@@ -1748,7 +1816,7 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        self.playExec.setIcon(icon12)
+        self.playExec.setIcon(icon14)
         self.playExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.playExec)
@@ -1771,7 +1839,7 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        self.pauseExec.setIcon(icon13)
+        self.pauseExec.setIcon(icon15)
         self.pauseExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.pauseExec)
@@ -1794,7 +1862,7 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        self.stopExec.setIcon(icon14)
+        self.stopExec.setIcon(icon16)
         self.stopExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.stopExec)
@@ -1817,9 +1885,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon17 = QIcon()
-        icon17.addFile(u":/images/media/forward.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.nextExec.setIcon(icon17)
+        icon19 = QIcon()
+        icon19.addFile(u":/images/media/forward.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.nextExec.setIcon(icon19)
         self.nextExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.nextExec)
@@ -1861,9 +1929,9 @@ class Ui_MainWindow(object):
 "	border: 1px solid #cccccc;\n"
 "}\n"
 "")
-        icon18 = QIcon()
-        icon18.addFile(u":/images/media/import.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.importBtn.setIcon(icon18)
+        icon20 = QIcon()
+        icon20.addFile(u":/images/media/import.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.importBtn.setIcon(icon20)
         self.importBtn.setIconSize(QSize(22, 22))
 
         self.fileWidget.addWidget(self.importBtn)
@@ -2018,6 +2086,8 @@ class Ui_MainWindow(object):
         self.ChessBtn2.setText(QCoreApplication.translate("MainWindow", u"  Chess AI", None))
         self.GithubBtn2.setText(QCoreApplication.translate("MainWindow", u"  Github", None))
         self.SidebarBtn.setText("")
+        self.resetLeftBtn.setText("")
+        self.resetRightBtn.setText("")
         self.label_4.setText(QCoreApplication.translate("MainWindow", u"Graphical Interface - Projet 3", None))
         self.MinimizeBtn.setText("")
         self.MaximizeBtn.setText("")
@@ -2055,7 +2125,8 @@ class Ui_MainWindow(object):
         self.muLabel.setText(QCoreApplication.translate("MainWindow", u"0", None))
         self.muminLabel.setText(QCoreApplication.translate("MainWindow", u"-200", None))
         self.mumaxLabel.setText(QCoreApplication.translate("MainWindow", u"200", None))
-        self.sendallBtn.setText(QCoreApplication.translate("MainWindow", u"Send all coordinates", None))
+        self.sendallBtn.setText(QCoreApplication.translate("MainWindow", u"Send (X, Y, Z)", None))
+        self.HomeCmdBtn.setText(QCoreApplication.translate("MainWindow", u"Home", None))
         self.label_13.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Joint Angles  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_14.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Gripper Activation  \u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_10.setText(QCoreApplication.translate("MainWindow", u"Mode:", None))

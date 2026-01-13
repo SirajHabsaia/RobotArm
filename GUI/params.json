@@ -1,9 +1,9 @@
 {
-    "xdef": 200,
+    "xdef": 380,
     "ydef": 0,
-    "zdef": 250,
+    "zdef": 220,
 
-    "zmin": -100,
+    "zmin": -200,
     "zmax": 250,
     
     "mumin": -90,
@@ -11,21 +11,22 @@
     "mudef": 0,
 
     "grippermin": 0,
-    "grippermax": 180,
-    "gripperdef": 90,
+    "grippermax": 100,
+    "gripperdef": 50,
 
-    "Rmin": 150,
-    "Rmax": 350,
+    "Rmin": 300,
+    "Rmax": 500,
 
     "thetamin": 0,
     "thetamax": 360,
 
     "alphamin": -17,
-    "alphamax": 90,
+    "alphamax": 120,
 
     "betamin": -30,
     "betamax": 90,
 
-    "gammamin": 60,
-    "gammamax": 300
+    "gammamin": -120,
+    "gammamax": 120,
+    "gammadef": 0
 }

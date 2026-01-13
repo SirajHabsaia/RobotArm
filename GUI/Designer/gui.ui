@@ -839,8 +839,48 @@ QPushButton:hover{
             </property>
             <property name="iconSize">
              <size>
-              <width>32</width>
-              <height>32</height>
+              <width>28</width>
+              <height>28</height>
+             </size>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="resetLeftBtn">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="resources.qrc">
+              <normaloff>:/images/reset_left.png</normaloff>:/images/reset_left.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="resetRightBtn">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="resources.qrc">
+              <normaloff>:/images/reset_right.png</normaloff>:/images/reset_right.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
              </size>
             </property>
             <property name="checkable">
@@ -2398,13 +2438,13 @@ QSlider::handle:horizontal:pressed {
                      <widget class="QPushButton" name="sendallBtn">
                       <property name="minimumSize">
                        <size>
-                        <width>0</width>
+                        <width>100</width>
                         <height>30</height>
                        </size>
                       </property>
                       <property name="maximumSize">
                        <size>
-                        <width>16777215</width>
+                        <width>100</width>
                         <height>30</height>
                        </size>
                       </property>
@@ -2416,7 +2456,7 @@ QSlider::handle:horizontal:pressed {
     border: 2px solid #6a6a6a;   /* visible gray frame */
     border-radius: 6px;
 
-    padding: 6px 14px;
+    padding: 6px 2px;
     font-size: 14px;
 }
 
@@ -2448,7 +2488,78 @@ QPushButton:disabled {
 </string>
                       </property>
                       <property name="text">
-                       <string>Send all coordinates</string>
+                       <string>Send (X, Y, Z)</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_17">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="HomeCmdBtn">
+                      <property name="minimumSize">
+                       <size>
+                        <width>50</width>
+                        <height>30</height>
+                       </size>
+                      </property>
+                      <property name="maximumSize">
+                       <size>
+                        <width>50</width>
+                        <height>30</height>
+                       </size>
+                      </property>
+                      <property name="styleSheet">
+                       <string notr="true">QPushButton {
+    background-color: transparent;
+    color: #e6e6e6;
+
+    border: 2px solid #6a6a6a;   /* visible gray frame */
+    border-radius: 6px;
+
+    padding: 6px 2px;
+    font-size: 14px;
+}
+
+/* Hover: brighter frame + subtle overlay */
+QPushButton:hover {
+    border-color: #9a9a9a;
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Pressed: darker frame + stronger overlay */
+QPushButton:pressed {
+    border-color: #b0b0b0;
+    background-color: rgba(0, 0, 0, 0.25);
+    padding-top: 7px;   /* subtle pressed effect */
+    padding-bottom: 5px;
+}
+
+/* Focus (keyboard navigation) */
+QPushButton:focus {
+    border-color: #bfbfbf;
+}
+
+/* Disabled */
+QPushButton:disabled {
+    color: #777777;
+    border-color: #444444;
+    background-color: transparent;
+}
+</string>
+                      </property>
+                      <property name="text">
+                       <string>Home</string>
                       </property>
                      </widget>
                     </item>

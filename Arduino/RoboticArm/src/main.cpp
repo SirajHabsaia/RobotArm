@@ -2,7 +2,7 @@
 
 // Include all module headers
 #include "config.h"
-#include "stepper.h"
+#include "control.h"
 #include "kinematics.h"
 #include "trajectory.h"
 #include "cartesian.h"
@@ -11,6 +11,8 @@
 
 void setup() {
     Serial.begin(115200);
+    SERIAL_DXL.begin(BAUDRATE);
+
     for (uint8_t j = 0; j < N; j++) {
         pinMode(CLK[j], OUTPUT);
         pinMode(DIR[j], OUTPUT);
@@ -24,9 +26,15 @@ void setup() {
 
 void loop() {
     readSerial();
+    execute_waypoint_list();
     if (currently_interpolating) follow_trajectory(interpolation_trajectory);
     if (currently_drawing_circle) follow_trajectory(circle_cartesian);
     if (currently_drawing_line) follow_trajectory(line_cartesian);
+
+    if (update_gripper && abs(current_gamma - mu_to_gamma(goal_mu)) > gamma_diff_threshold) {
+        current_gamma = mu_to_gamma(goal_mu);
+        move_gamma(current_gamma, 150);
+    }
 
     feedback();
 }
