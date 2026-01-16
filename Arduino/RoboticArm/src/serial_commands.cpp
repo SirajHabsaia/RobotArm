@@ -196,6 +196,9 @@ void readSerial() {
             currently_drawing_line = false;
             currently_interpolating = false;
             currently_following_trajectory = false;
+            executing_list = false;
+            currently_following_planned = false;
+            must_execute_planned = false;
             Serial.println("Reset all movements.");
             begin_reset();
         } else if (c == 'h') { // gamma
@@ -298,6 +301,62 @@ void readSerial() {
             Serial.print("Loaded ");
             Serial.print(waypoint_count);
             Serial.println(" waypoints. Starting execution.");
+        } else if (c == 'w') { // receive planned waypoints
+            // Format: wn<count>d<time_us>,t<theta>a<alpha>b<beta>,t<theta>a<alpha>b<beta>,...
+            // Read count and time (up to first comma)
+            String header = Serial.readStringUntil(',');
+            header.trim();
+            
+            // Parse waypoint count
+            int n_idx = header.indexOf('n');
+            int d_idx = header.indexOf('d');
+            
+            if (n_idx == -1 || d_idx == -1 || d_idx <= n_idx) {
+                Serial.println("Invalid format. Expected: n<count>d<time_us>");
+                return;
+            }
+            
+            String count_str = header.substring(n_idx + 1, d_idx);
+            waypoint_count = count_str.toInt();
+            
+            String time_str = header.substring(d_idx + 1);
+            segment_planned_time = time_str.toInt();
+            total_planned_time = segment_planned_time * waypoint_count;
+            
+            // Parse each waypoint from serial stream
+            for (uint8_t i = 0; i < waypoint_count; i++) {
+                String wp_str = Serial.readStringUntil(',');
+                wp_str.trim();
+                
+                // Parse t<theta>a<alpha>b<beta>
+                int t_idx = wp_str.indexOf('t');
+                int a_idx = wp_str.indexOf('a');
+                int b_idx = wp_str.indexOf('b');
+                
+                if (t_idx != -1 && a_idx != -1 && b_idx != -1 && 
+                    a_idx > t_idx && b_idx > a_idx) {
+                    
+                    String theta_str = wp_str.substring(t_idx + 1, a_idx);
+                    String alpha_str = wp_str.substring(a_idx + 1, b_idx);
+                    String beta_str = wp_str.substring(b_idx + 1);
+                    
+                    waypoint_buffer[i].coord[0] = theta_str.toFloat();
+                    waypoint_buffer[i].coord[1] = alpha_str.toFloat();
+                    waypoint_buffer[i].coord[2] = beta_str.toFloat();
+                    waypoint_buffer[i].coord[3] = 0.0; // mu
+                    waypoint_buffer[i].coord[4] = 0.0; // gripper
+                } else {
+                    Serial.println("Invalid waypoint format. Use: t<theta>a<alpha>b<beta>");
+                    return;
+                }
+            }
+
+            // Start interpolation to first waypoint
+            for (uint8_t j = 0; j < N; j++) {
+                target_angle_interpolation[j] = waypoint_buffer[0].coord[j];
+            }
+            must_execute_planned = true;
+            begin_interpolate();
         }
     }
 }

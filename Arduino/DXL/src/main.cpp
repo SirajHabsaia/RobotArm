@@ -8,7 +8,7 @@
 
 void setup()
 {
-	ax12a.begin(BaudRate, DirectionPin, &Serial2);
+	ax12a.begin(BaudRate, DirectionPin, &Serial1);
   Serial.begin(115200);
   //ax12a.move(ID, 3500);
 }

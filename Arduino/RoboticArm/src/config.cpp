@@ -22,9 +22,9 @@ float L3z = 30.0;
 // ===========================
 int min_position_ax12 = 0;
 int max_position_ax12 = 200;
-int min_position_mx28 = 2500;
-int def_position_mx28 = 3624;
-int max_position_mx28 = 4095;
+int min_position_mx28 = 50;
+int def_position_mx28 = 1425;
+int max_position_mx28 = 2900;
 
 // ===========================
 // TIMING VARIABLES
@@ -50,7 +50,7 @@ bool homed_all = true;
 unsigned long last_homing_step[N] = {0, 0, 0};
 float homing_delay[N] = {2000, 2000, 2000};
 bool inv_dir_homing[N] = {false, true, false};
-float calibrated_angles[N] = {-3, -16.8,43.8};
+float calibrated_angles[N] = {-3, -16.8,43.8+1.5};
 
 // ===========================
 // KINEMATICS RESULTS
@@ -69,6 +69,7 @@ bool currently_following_trajectory = false;
 bool currently_drawing_circle = false;
 bool currently_drawing_line = false;
 bool currently_interpolating = false;
+bool currently_following_planned = false;
 
 unsigned long trajectory_check_interval = 250;
 unsigned long last_trajectory_check_interval = 0;
@@ -123,3 +124,7 @@ Waypoint waypoint_buffer[MAX_WAYPOINTS];
 uint8_t waypoint_count = 0;
 uint8_t waypoint_index = 0;
 bool done_waypoint = true;
+
+unsigned long segment_planned_time = 0;
+unsigned long total_planned_time = 0;
+bool must_execute_planned = false;

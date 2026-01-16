@@ -22,7 +22,14 @@ void follow_trajectory(void (*trajectory_func)(float)) {
         currently_interpolating = false;
         currently_drawing_circle = false;
         currently_drawing_line = false;
+        currently_following_planned = false;
         if (executing_list) done_waypoint = true;
+        if (must_execute_planned) {
+            must_execute_planned = false;
+            currently_following_planned = true;
+            trajectory_time = total_planned_time / 1e6f;
+            begin_trajectory();
+        }
 
         Serial.print("Completed at [");
         for (uint8_t j = 0; j < N; j++) {
@@ -39,7 +46,7 @@ void follow_trajectory(void (*trajectory_func)(float)) {
     
     for (uint8_t j = 0; j < N; j++) {
         difference_angle_trajectory[j] = target_angle_snap[j] - current_angle[j];
-        int req_steps = round(abs(difference_angle_trajectory[j]) / (360.0 / RESOLUTION[j]));
+        uint8_t req_steps = round(abs(difference_angle_trajectory[j]) / (360.0 / RESOLUTION[j]));
         for (int step = 0; step < req_steps; step++) movestep(j, difference_angle_trajectory[j] > 0.0);
     }
 }
@@ -170,4 +177,22 @@ void execute_waypoint_list() {
     waypoint_index++;
     done_waypoint = false;
     begin_interpolate();
+}
+
+void planned_trajectory(float t) {
+
+    if (t >= total_planned_time / 1e6f) return; //should never be reached anyways
+    // determine current waypoint segment
+    uint8_t current_segment = (int) (t / (segment_planned_time / 1e6f));
+    if (current_segment == 0) current_segment = 1; //should also never be reached
+    float elapsed_in_segment = t - current_segment * (segment_planned_time / 1e6f);
+    for (uint8_t j = 0; j < N; j++) {
+        float start_angle = waypoint_buffer[current_segment-1].coord[j];
+        float end_angle = waypoint_buffer[current_segment].coord[j];
+        float segment_time = segment_planned_time / 1e6f;
+
+        // Linear interpolation
+        target_angle_snap[j] = start_angle + (end_angle - start_angle) * (elapsed_in_segment / segment_time);
+    }
+
 }

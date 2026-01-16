@@ -30,6 +30,7 @@ void loop() {
     if (currently_interpolating) follow_trajectory(interpolation_trajectory);
     if (currently_drawing_circle) follow_trajectory(circle_cartesian);
     if (currently_drawing_line) follow_trajectory(line_cartesian);
+    if (currently_following_planned) follow_trajectory(planned_trajectory);
 
     if (update_gripper && abs(current_gamma - mu_to_gamma(goal_mu)) > gamma_diff_threshold) {
         current_gamma = mu_to_gamma(goal_mu);

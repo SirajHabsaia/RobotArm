@@ -28,7 +28,7 @@ extern float L3z;
 #define AX12_ID 5
 #define MX28_ID 1
 #define BAUDRATE 1000000ul
-#define SERIAL_DXL Serial2
+#define SERIAL_DXL Serial1
 
 extern int min_position_ax12;
 extern int max_position_ax12;
@@ -79,6 +79,7 @@ extern bool currently_following_trajectory;
 extern bool currently_drawing_circle;
 extern bool currently_drawing_line;
 extern bool currently_interpolating;
+extern bool currently_following_planned; // following planned trajectory flag
 
 extern unsigned long trajectory_check_interval;
 extern unsigned long last_trajectory_check_interval;
@@ -129,7 +130,7 @@ extern bool time_feedback_enabled;
 // LIST EXECUTION
 // ===========================
 #define AXES 5
-#define MAX_WAYPOINTS 20
+#define MAX_WAYPOINTS 100
 extern bool executing_list;
 struct Waypoint {
     float coord[AXES];
@@ -138,5 +139,9 @@ extern Waypoint waypoint_buffer[];
 extern uint8_t waypoint_count;
 extern uint8_t waypoint_index;
 extern bool done_waypoint;
+
+extern unsigned long segment_planned_time; //us
+extern unsigned long total_planned_time; //us
+extern bool must_execute_planned; // start planned traj after interpolation
 
 #endif // CONFIG_H

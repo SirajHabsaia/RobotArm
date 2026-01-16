@@ -6,14 +6,14 @@ from matplotlib.figure import Figure
 # =========================
 # HARD-CODED LIMITS
 # =========================
-VEL_LIMIT_A = 10.0
-ACC_LIMIT_A = 10.0
+VEL_LIMIT_A = 15.0
+ACC_LIMIT_A = 15.0
 
-VEL_LIMIT_B = 10.0
-ACC_LIMIT_B = 10.0
+VEL_LIMIT_B = 15.0
+ACC_LIMIT_B = 15.0
 
-VEL_LIMIT_THETA = 10.0
-ACC_LIMIT_THETA = 10.0
+VEL_LIMIT_THETA = 30.0
+ACC_LIMIT_THETA = 30.0
 
 smoothing_window = 21  # Default smoothing window size
 

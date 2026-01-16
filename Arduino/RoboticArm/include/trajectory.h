@@ -19,4 +19,7 @@ void begin_interpolate();
 // Execute a list of waypoints
 void execute_waypoint_list();
 
+// Planned trajectory function
+void planned_trajectory(float t);
+
 #endif // TRAJECTORY_H
