@@ -26,6 +26,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.importBtn.setHidden(True)
         self.fileLabel.setHidden(True)
         
+        # Flag to prevent recursive prohibited zone updates
+        self._updating_prohibited_zones = False
+        
         # Load parameters from JSON
         self._load_parameters()
         
@@ -94,6 +97,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self.file_loaded = False
         
+        # Track if we're currently executing a trajectory
+        self.executing_trajectory = False
+        
         # Waypoint tracking
         self.waypoints = []  # List of tuples (x, y, z, mu, gripper)
         self.current_waypoint = None  # Temporary waypoint before adding to list (x, y)
@@ -120,8 +126,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect import button for Execute mode
         self.importBtn.clicked.connect(self._on_import_waypoints)
         
-        # Connect play button for Execute mode
+        # Connect play, pause, stop buttons for Execute mode
         self.playExec.clicked.connect(self._on_play_exec)
+        self.pauseExec.clicked.connect(self._on_pause_exec)
+        self.stopExec.clicked.connect(self._on_stop_exec)
+        self.flushExec.clicked.connect(self._on_flush_exec)
+        self.restartExec.clicked.connect(self._on_restart_exec)
         
         # COM port management
         self.serial_connection = None
@@ -187,6 +197,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # Last sent gripper percentage (0-100)
         self.last_gripper_percentage = 50
+        
+        # Developer mode flag
+        self.devmode = True
+        
+        # Connect developer buttons
+        self.abortBtn.clicked.connect(self._on_abort)
+        self.devBtn.clicked.connect(self._on_dev_send)
+        
+        # Set visibility based on devmode
+        self.abortBtn.setVisible(self.devmode)
+        self.devBtn.setVisible(self.devmode)
+        self.devLineEdit.setVisible(self.devmode)
     
     def _load_parameters(self):
         """Load parameters from params.json"""
@@ -842,6 +864,90 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.alpha_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('alpha', v))
         self.beta_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('beta', v))
         self.gamma_slider.valueChanged.connect(lambda v: self._on_gamma_slider_changed(v))
+        
+        # Connect alpha and beta to update each other's prohibited zones
+        self.alpha_slider.valueChanged.connect(self._update_beta_prohibited_zone)
+        self.beta_slider.valueChanged.connect(self._update_alpha_prohibited_zone)
+        
+        # Initialize prohibited zones
+        self._update_alpha_prohibited_zone()
+        self._update_beta_prohibited_zone()
+    
+    def _update_alpha_prohibited_zone(self):
+        """Update alpha slider's prohibited zone based on current beta value"""
+        if self._updating_prohibited_zones:
+            return
+        
+        self._updating_prohibited_zones = True
+        try:
+            # Constraint: alpha - beta < diffmax => alpha < beta + diffmax
+            # Prohibited zone: alpha >= beta + diffmax (from min_prohibited to max)
+            beta_value = self.beta_slider.value()
+            diffmax = self.params.get('diffmax', 50)
+            
+            # Calculate the minimum prohibited alpha value
+            min_prohibited_alpha = beta_value + diffmax
+            
+            # Get alpha range
+            alpha_min = self.params['alphamin']
+            alpha_max = self.params['alphamax']
+            
+            if min_prohibited_alpha >= alpha_max:
+                # No prohibited zone needed (all values are valid)
+                self.alpha_slider.prohibited_start = -1
+                self.alpha_slider.prohibited_end = -1
+            elif min_prohibited_alpha <= alpha_min:
+                # Entire range is prohibited (shouldn't happen in normal operation)
+                self.alpha_slider.prohibited_start = self.alpha_slider.min_angle
+                self.alpha_slider.prohibited_end = self.alpha_slider.max_angle
+            else:
+                # Calculate angle for the minimum prohibited value
+                prohibited_start_angle = self.alpha_slider.angle_for_value(min_prohibited_alpha)
+                # Prohibited zone is from prohibited_start_angle to max_angle
+                self.alpha_slider.prohibited_start = prohibited_start_angle
+                self.alpha_slider.prohibited_end = self.alpha_slider.max_angle
+            
+            self.alpha_slider.update()
+        finally:
+            self._updating_prohibited_zones = False
+    
+    def _update_beta_prohibited_zone(self):
+        """Update beta slider's prohibited zone based on current alpha value"""
+        if self._updating_prohibited_zones:
+            return
+        
+        self._updating_prohibited_zones = True
+        try:
+            # Constraint: alpha - beta < diffmax => beta > alpha - diffmax
+            # Prohibited zone: beta <= alpha - diffmax (from min to max_prohibited)
+            alpha_value = self.alpha_slider.value()
+            diffmax = self.params.get('diffmax', 50)
+            
+            # Calculate the maximum prohibited beta value
+            max_prohibited_beta = alpha_value - diffmax
+            
+            # Get beta range
+            beta_min = self.params['betamin']
+            beta_max = self.params['betamax']
+            
+            if max_prohibited_beta <= beta_min:
+                # No prohibited zone needed (all values are valid)
+                self.beta_slider.prohibited_start = -1
+                self.beta_slider.prohibited_end = -1
+            elif max_prohibited_beta >= beta_max:
+                # Entire range is prohibited (shouldn't happen)
+                self.beta_slider.prohibited_start = self.beta_slider.min_angle
+                self.beta_slider.prohibited_end = self.beta_slider.max_angle
+            else:
+                # Calculate angle for the maximum prohibited value
+                prohibited_end_angle = self.beta_slider.angle_for_value(max_prohibited_beta)
+                # Prohibited zone is from min_angle to prohibited_end_angle
+                self.beta_slider.prohibited_start = self.beta_slider.min_angle
+                self.beta_slider.prohibited_end = prohibited_end_angle
+            
+            self.beta_slider.update()
+        finally:
+            self._updating_prohibited_zones = False
     
     def _setup_3d_viewer(self):
         """Setup the 3D robot viewer and embed it in ThreeDWidget1"""
@@ -1166,9 +1272,51 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print("Cannot play in Record mode")
             return
         
-        # Check if we have waypoints loaded
-        if not self.waypoints:
-            print("No waypoints loaded")
+        # Check if connected to Arduino
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            # If already executing, send resume command
+            if self.executing_trajectory:
+                command = "o\n"
+                self.serial_connection.write(command.encode())
+                print(f"Sent resume: {command.strip()}")
+            else:
+                # Check if we have waypoints loaded
+                if not self.waypoints:
+                    print("No waypoints loaded")
+                    return
+                
+                # Format waypoints into command string
+                # Format: n<count>,x<x>y<y>z<z>m<mu>g<gripper>,x<x>y<y>z<z>m<mu>g<gripper>,...
+                waypoint_count = len(self.waypoints)
+                command_parts = [f"n{waypoint_count}"]
+                
+                for x, y, z, mu, gripper in self.waypoints:
+                    # Format each waypoint: x<x>y<y>z<z>m<mu>g<gripper>
+                    waypoint_str = f"x{x:.1f}y{y:.1f}z{z:.1f}m{mu}g{gripper}"
+                    command_parts.append(waypoint_str)
+                
+                # Join with commas
+                command = ",".join(command_parts) + "\n"
+                
+                self.serial_connection.write(command.encode())
+                print(f"Sent trajectory: {command.strip()}")
+                
+                # Set flag to indicate we're now executing
+                self.executing_trajectory = True
+                
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_pause_exec(self):
+        """Send pause command to Arduino when pause button is pressed in Execute mode"""
+        # Only allow in Execute mode
+        if self.record_mode:
+            print("Cannot pause in Record mode")
             return
         
         # Check if connected to Arduino
@@ -1176,22 +1324,94 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print("Not connected to Arduino")
             return
         
-        # Format waypoints into command string
-        # Format: n<count>,x<x>y<y>z<z>m<mu>g<gripper>,x<x>y<y>z<z>m<mu>g<gripper>,...
-        waypoint_count = len(self.waypoints)
-        command_parts = [f"n{waypoint_count}"]
+        try:
+            command = "p\n"
+            self.serial_connection.write(command.encode())
+            print(f"Sent pause: {command.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_stop_exec(self):
+        """Send stop command to Arduino when stop button is pressed in Execute mode"""
+        # Only allow in Execute mode
+        if self.record_mode:
+            print("Cannot stop in Record mode")
+            return
         
-        for x, y, z, mu, gripper in self.waypoints:
-            # Format each waypoint: x<x>y<y>z<z>m<mu>g<gripper>
-            waypoint_str = f"x{x:.1f}y{y:.1f}z{z:.1f}m{mu}g{gripper}"
-            command_parts.append(waypoint_str)
-        
-        # Join with commas
-        command = ",".join(command_parts) + "\n"
+        # Check if connected to Arduino
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
         
         try:
+            command = "s\n"
             self.serial_connection.write(command.encode())
-            print(f"Sent trajectory: {command.strip()}")
+            print(f"Sent stop: {command.strip()}")
+            
+            # Reset executing flag
+            self.executing_trajectory = False
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_flush_exec(self):
+        """Flush everything: send stop signal, clear graph, list, and reset flags"""
+        # Send stop command to Arduino
+        if self.serial_connection and self.serial_connection.is_open:
+            try:
+                command = "s\n"
+                self.serial_connection.write(command.encode())
+                print(f"Sent stop (flush): {command.strip()}")
+            except serial.SerialException as e:
+                print(f"Serial error: {e}")
+                self._on_disconnect_com()
+        
+        # Clear all waypoints
+        self._clear_all_waypoints()
+        
+        # Reset executing flag
+        self.executing_trajectory = False
+        
+        print("Flushed: Cleared waypoints, graph, and reset execution state")
+    
+    def _on_restart_exec(self):
+        """Restart execution: reset pause and send waypoint list again"""
+        # Only allow in Execute mode
+        if self.record_mode:
+            print("Cannot restart in Record mode")
+            return
+        
+        # Check if we have waypoints loaded
+        if not self.waypoints:
+            print("No waypoints to restart")
+            return
+        
+        # Check if connected to Arduino
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            # Format waypoints into command string
+            # Format: n<count>,x<x>y<y>z<z>m<mu>g<gripper>,x<x>y<y>z<z>m<mu>g<gripper>,...
+            waypoint_count = len(self.waypoints)
+            command_parts = [f"n{waypoint_count}"]
+            
+            for x, y, z, mu, gripper in self.waypoints:
+                # Format each waypoint: x<x>y<y>z<z>m<mu>g<gripper>
+                waypoint_str = f"x{x:.1f}y{y:.1f}z{z:.1f}m{mu}g{gripper}"
+                command_parts.append(waypoint_str)
+            
+            # Join with commas
+            command = ",".join(command_parts) + "\n"
+            
+            self.serial_connection.write(command.encode())
+            print(f"Sent restart trajectory: {command.strip()}")
+            
+            # Set flag to indicate we're now executing
+            self.executing_trajectory = True
+            
         except serial.SerialException as e:
             print(f"Serial error: {e}")
             self._on_disconnect_com()
@@ -1421,7 +1641,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.connected_port = None
     
     def _on_disconnect_com(self):
-        """Disconnect from the current COM port"""
+        """Disconnect from the current COM port and reset all values to defaults"""
         # Stop timers
         self.serial_read_timer.stop()
         self.command_debounce_timer.stop()
@@ -1438,6 +1658,32 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.serial_connection = None
         self.connected_port = None
         self.serial_buffer = ""  # Clear buffer
+        
+        # Reset executing trajectory flag
+        self.executing_trajectory = False
+        
+        # Reset all sliders and state to defaults
+        self._reset_sliders_to_defaults()
+        
+        # Reset gripper slider to default
+        gripper_def = self.params.get("gripperdef", 90)
+        gripper_min = self.params.get("grippermin", 0)
+        gripper_max = self.params.get("grippermax", 180)
+        default_percentage = int(((gripper_def - gripper_min) / (gripper_max - gripper_min)) * 100)
+        self.griperSlider.blockSignals(True)
+        self.griperSlider.setValue(default_percentage)
+        self.griperSlider.blockSignals(False)
+        self.last_gripper_percentage = default_percentage
+        
+        # Update 3D viewer to default state
+        if self.robot_viewer:
+            self.robot_viewer.set_theta(0)
+            self.robot_viewer.set_alpha(0)
+            self.robot_viewer.set_beta(0)
+            self.robot_viewer.set_mu(0)
+            gripper_mapped = (default_percentage / 100.0) * 85.0
+            self.robot_viewer.set_gripper(gripper_mapped)
+        
         self._update_com_button_states()
     
     def _on_quit_app(self):
@@ -1446,6 +1692,42 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._on_disconnect_com()
         # Close the application
         QApplication.quit()
+    
+    def _on_abort(self):
+        """Send abort command 's' to Arduino"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            command = "s\n"
+            self.serial_connection.write(command.encode())
+            print(f"Sent abort: {command.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_dev_send(self):
+        """Send content of devLineEdit to Arduino"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        # Get text from line edit
+        dev_text = self.devLineEdit.text().strip()
+        if not dev_text:
+            print("Dev line edit is empty")
+            return
+        
+        try:
+            # Add newline if not present
+            if not dev_text.endswith('\n'):
+                dev_text += '\n'
+            self.serial_connection.write(dev_text.encode())
+            print(f"Sent dev command: {dev_text.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
     
     def _update_com_button_states(self):
         """Update button enabled/disabled states based on connection status"""

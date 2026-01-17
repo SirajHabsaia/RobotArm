@@ -357,6 +357,20 @@ void readSerial() {
             }
             must_execute_planned = true;
             begin_interpolate();
+        } else if (c == 's') { // Stop all movements
+            currently_drawing_circle = false;
+            currently_drawing_line = false;
+            currently_interpolating = false;
+            currently_following_trajectory = false;
+            executing_list = false;
+            currently_following_planned = false;
+            must_execute_planned = false;
+            paused_execution = false;
+            Serial.println("Stopped all movements.");
+        } else if (c == 'p') { // Pause list execution
+            paused_execution = true;
+        } else if (c == 'o') { // Resume list execution
+            paused_execution = false;
         }
     }
 }

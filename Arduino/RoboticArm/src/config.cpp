@@ -124,6 +124,7 @@ Waypoint waypoint_buffer[MAX_WAYPOINTS];
 uint8_t waypoint_count = 0;
 uint8_t waypoint_index = 0;
 bool done_waypoint = true;
+bool paused_execution = false;
 
 unsigned long segment_planned_time = 0;
 unsigned long total_planned_time = 0;

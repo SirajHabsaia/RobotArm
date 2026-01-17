@@ -889,6 +889,56 @@ QPushButton:hover{
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="abortBtn">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="resources.qrc">
+              <normaloff>:/images/abort.png</normaloff>:/images/abort.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="devLineEdit">
+            <property name="minimumSize">
+             <size>
+              <width>120</width>
+              <height>26</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="devBtn">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="resources.qrc">
+              <normaloff>:/images/send.png</normaloff>:/images/send.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="horizontalSpacer_6">
             <property name="orientation">
              <enum>Qt::Orientation::Horizontal</enum>
@@ -1029,7 +1079,7 @@ QPushButton:hover{
           <string notr="true">background-color: transparent;</string>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>2</number>
          </property>
          <widget class="QWidget" name="page_home">
           <layout class="QGridLayout" name="gridLayout_2">
@@ -1200,8 +1250,8 @@ QWidget{
 QListWidget::item {
     background: #34363b;
     color: white;
-    padding: 12px;          /* makes items bigger */
-    margin: 4px;            /* spacing between items */
+    padding: 12px 4px;          /* makes items bigger */
+    margin: 4px 0px;            /* spacing between items */
     border-radius: 6px;     /* rounded corners */
 }
 
@@ -3595,7 +3645,7 @@ QPushButton:pressed {
                   </spacer>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="previousExec">
+                  <widget class="QPushButton" name="flushExec">
                    <property name="minimumSize">
                     <size>
                      <width>32</width>
@@ -3629,12 +3679,12 @@ QPushButton:pressed {
                    </property>
                    <property name="icon">
                     <iconset resource="resources.qrc">
-                     <normaloff>:/images/media/backward.png</normaloff>:/images/media/backward.png</iconset>
+                     <normaloff>:/images/close.png</normaloff>:/images/close.png</iconset>
                    </property>
                    <property name="iconSize">
                     <size>
-                     <width>32</width>
-                     <height>32</height>
+                     <width>24</width>
+                     <height>24</height>
                     </size>
                    </property>
                   </widget>
@@ -3775,7 +3825,7 @@ QPushButton:pressed {
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="nextExec">
+                  <widget class="QPushButton" name="restartExec">
                    <property name="minimumSize">
                     <size>
                      <width>32</width>
@@ -3809,12 +3859,12 @@ QPushButton:pressed {
                    </property>
                    <property name="icon">
                     <iconset resource="resources.qrc">
-                     <normaloff>:/images/media/forward.png</normaloff>:/images/media/forward.png</iconset>
+                     <normaloff>:/images/reset_left.png</normaloff>:/images/reset_left.png</iconset>
                    </property>
                    <property name="iconSize">
                     <size>
-                     <width>32</width>
-                     <height>32</height>
+                     <width>28</width>
+                     <height>28</height>
                     </size>
                    </property>
                   </widget>
@@ -3974,13 +4024,14 @@ QPushButton:pressed {
     border-radius: 6px;
     padding: 4px;
     outline: none;
+	font-size: 10px;
 }
 
 QListWidget::item {
     background: #34363b;
     color: white;
-    padding: 12px;          /* makes items bigger */
-    margin: 4px;            /* spacing between items */
+    padding: 4px 4px;          /* makes items bigger */
+    margin: 4px 0px;            /* spacing between items */
     border-radius: 6px;     /* rounded corners */
 }
 
@@ -4037,23 +4088,97 @@ QListWidget::item:pressed {
           </widget>
          </widget>
          <widget class="QWidget" name="page_chess">
-          <widget class="QLabel" name="label_5">
+          <widget class="QWidget" name="chessWidget_2" native="true">
            <property name="geometry">
             <rect>
-             <x>230</x>
-             <y>250</y>
-             <width>151</width>
-             <height>71</height>
+             <x>470</x>
+             <y>30</y>
+             <width>300</width>
+             <height>300</height>
             </rect>
            </property>
-           <property name="font">
-            <font>
-             <pointsize>40</pointsize>
-            </font>
+           <property name="minimumSize">
+            <size>
+             <width>300</width>
+             <height>300</height>
+            </size>
            </property>
-           <property name="text">
-            <string>Chess</string>
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(21, 21, 21);</string>
            </property>
+          </widget>
+          <widget class="QGroupBox" name="groupBox">
+           <property name="geometry">
+            <rect>
+             <x>490</x>
+             <y>350</y>
+             <width>261</width>
+             <height>201</height>
+            </rect>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QGroupBox {
+    font-family: &quot;Segoe UI&quot;;
+    font-size: 18px;
+}
+QGroupBox::title {
+    letter-spacing: 2px;
+	subcontrol-position: top center;
+}
+</string>
+           </property>
+           <property name="title">
+            <string>Chess Settings</string>
+           </property>
+          </widget>
+          <widget class="QWidget" name="widget" native="true">
+           <property name="geometry">
+            <rect>
+             <x>20</x>
+             <y>20</y>
+             <width>420</width>
+             <height>531</height>
+            </rect>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>420</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(47, 47, 47);</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_17">
+            <item>
+             <widget class="QLabel" name="label_5">
+              <property name="font">
+               <font>
+                <pointsize>22</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Not yet connected</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignmentFlag::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="chessWidget" native="true">
+              <property name="minimumSize">
+               <size>
+                <width>400</width>
+                <height>400</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color: rgb(21, 21, 21);</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </widget>
         </widget>

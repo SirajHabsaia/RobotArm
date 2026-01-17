@@ -156,9 +156,8 @@ void execute_waypoint_list() {
         Serial.println("Completed waypoint list execution.");
         return;
     }
-    if (!done_waypoint) {
-        return;
-    }
+    if (!done_waypoint || paused_execution) return;
+    
     delay(100);
     move_gripper(waypoint_buffer[waypoint_index].coord[4]);
     delay(100);

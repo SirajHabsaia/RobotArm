@@ -1,5 +1,6 @@
 <RCC>
   <qresource>
+    <file>images/abort.png</file>
     <file>images/media/backward.png</file>
     <file>images/media/forward.png</file>
     <file>images/media/import.png</file>

@@ -28,5 +28,7 @@
 
     "gammamin": -120,
     "gammamax": 120,
-    "gammadef": 0
+    "gammadef": 0,
+
+    "diffmax" : 50
 }

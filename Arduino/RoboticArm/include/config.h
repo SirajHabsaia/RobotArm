@@ -139,6 +139,7 @@ extern Waypoint waypoint_buffer[];
 extern uint8_t waypoint_count;
 extern uint8_t waypoint_index;
 extern bool done_waypoint;
+extern bool paused_execution;
 
 extern unsigned long segment_planned_time; //us
 extern unsigned long total_planned_time; //us
