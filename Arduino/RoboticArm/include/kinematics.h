@@ -7,4 +7,7 @@ void inverse_kinematics(float x, float y, float z);
 // Direct kinematics: compute cartesian position from joint angles
 void direct_kinematics(float theta, float alpha, float beta);
 
+float mu_to_gamma(float mu);
+float gamma_to_mu(float gamma);
+
 #endif // KINEMATICS_H

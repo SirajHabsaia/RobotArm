@@ -25,7 +25,7 @@ class KinematicsConverter(QMainWindow):
         # Default link lengths
         self.l1 = 250
         self.l2 = 200
-        self.l3 = 150
+        self.l3 = 180
         
         # Create main layout
         main_layout = QHBoxLayout()
@@ -138,7 +138,7 @@ class KinematicsConverter(QMainWindow):
             
             # Convert mu from degrees to radians for backend
             mu_rad = np.radians(mu)
-            angles_rad = inverse_kinematics(x, y, z, self.l1, self.l2, self.l3, mu_rad)
+            angles_rad = inverse_kinematics(x, y, z, self.l1, self.l2, self.l3, mu = mu_rad)
             
             # Convert angles from radians to degrees for display
             self.theta_input.setText(f"{np.degrees(angles_rad[0]):.3f}")

@@ -15,10 +15,11 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QFrame, QGridLayout, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QMainWindow, QPushButton, QSizePolicy, QSlider,
-    QSpacerItem, QStackedWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QFrame, QGridLayout, QGroupBox,
+    QHBoxLayout, QLabel, QLineEdit, QListWidget,
+    QListWidgetItem, QMainWindow, QPushButton, QSizePolicy,
+    QSlider, QSpacerItem, QStackedWidget, QVBoxLayout,
+    QWidget)
 import Designer.resources_rc
 
 class Ui_MainWindow(object):
@@ -332,10 +333,56 @@ class Ui_MainWindow(object):
         icon6 = QIcon()
         icon6.addFile(u":/images/menu.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.SidebarBtn.setIcon(icon6)
-        self.SidebarBtn.setIconSize(QSize(32, 32))
+        self.SidebarBtn.setIconSize(QSize(28, 28))
         self.SidebarBtn.setCheckable(True)
 
         self.horizontalLayout_4.addWidget(self.SidebarBtn)
+
+        self.resetLeftBtn = QPushButton(self.title_widget)
+        self.resetLeftBtn.setObjectName(u"resetLeftBtn")
+        icon7 = QIcon()
+        icon7.addFile(u":/images/reset_left.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.resetLeftBtn.setIcon(icon7)
+        self.resetLeftBtn.setIconSize(QSize(24, 24))
+        self.resetLeftBtn.setCheckable(True)
+
+        self.horizontalLayout_4.addWidget(self.resetLeftBtn)
+
+        self.resetRightBtn = QPushButton(self.title_widget)
+        self.resetRightBtn.setObjectName(u"resetRightBtn")
+        icon8 = QIcon()
+        icon8.addFile(u":/images/reset_right.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.resetRightBtn.setIcon(icon8)
+        self.resetRightBtn.setIconSize(QSize(24, 24))
+        self.resetRightBtn.setCheckable(True)
+
+        self.horizontalLayout_4.addWidget(self.resetRightBtn)
+
+        self.abortBtn = QPushButton(self.title_widget)
+        self.abortBtn.setObjectName(u"abortBtn")
+        icon9 = QIcon()
+        icon9.addFile(u":/images/abort.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.abortBtn.setIcon(icon9)
+        self.abortBtn.setIconSize(QSize(24, 24))
+        self.abortBtn.setCheckable(True)
+
+        self.horizontalLayout_4.addWidget(self.abortBtn)
+
+        self.devLineEdit = QLineEdit(self.title_widget)
+        self.devLineEdit.setObjectName(u"devLineEdit")
+        self.devLineEdit.setMinimumSize(QSize(120, 26))
+
+        self.horizontalLayout_4.addWidget(self.devLineEdit)
+
+        self.devBtn = QPushButton(self.title_widget)
+        self.devBtn.setObjectName(u"devBtn")
+        icon10 = QIcon()
+        icon10.addFile(u":/images/send.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.devBtn.setIcon(icon10)
+        self.devBtn.setIconSize(QSize(24, 24))
+        self.devBtn.setCheckable(True)
+
+        self.horizontalLayout_4.addWidget(self.devBtn)
 
         self.horizontalSpacer_6 = QSpacerItem(303, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -357,9 +404,9 @@ class Ui_MainWindow(object):
         self.MinimizeBtn = QPushButton(self.title_widget)
         self.MinimizeBtn.setObjectName(u"MinimizeBtn")
         self.MinimizeBtn.setMinimumSize(QSize(32, 32))
-        icon7 = QIcon()
-        icon7.addFile(u":/images/minimize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.MinimizeBtn.setIcon(icon7)
+        icon11 = QIcon()
+        icon11.addFile(u":/images/minimize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.MinimizeBtn.setIcon(icon11)
         self.MinimizeBtn.setIconSize(QSize(20, 20))
 
         self.horizontalLayout_4.addWidget(self.MinimizeBtn)
@@ -367,9 +414,9 @@ class Ui_MainWindow(object):
         self.MaximizeBtn = QPushButton(self.title_widget)
         self.MaximizeBtn.setObjectName(u"MaximizeBtn")
         self.MaximizeBtn.setMinimumSize(QSize(32, 32))
-        icon8 = QIcon()
-        icon8.addFile(u":/images/maximize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.MaximizeBtn.setIcon(icon8)
+        icon12 = QIcon()
+        icon12.addFile(u":/images/maximize.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.MaximizeBtn.setIcon(icon12)
         self.MaximizeBtn.setIconSize(QSize(20, 20))
         self.MaximizeBtn.setCheckable(True)
 
@@ -378,9 +425,9 @@ class Ui_MainWindow(object):
         self.CloseBtn = QPushButton(self.title_widget)
         self.CloseBtn.setObjectName(u"CloseBtn")
         self.CloseBtn.setMinimumSize(QSize(32, 32))
-        icon9 = QIcon()
-        icon9.addFile(u":/images/close.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.CloseBtn.setIcon(icon9)
+        icon13 = QIcon()
+        icon13.addFile(u":/images/close.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.CloseBtn.setIcon(icon13)
         self.CloseBtn.setIconSize(QSize(20, 20))
 
         self.horizontalLayout_4.addWidget(self.CloseBtn)
@@ -490,8 +537,8 @@ class Ui_MainWindow(object):
 "QListWidget::item {\n"
 "    background: #34363b;\n"
 "    color: white;\n"
-"    padding: 12px;          /* makes items bigger */\n"
-"    margin: 4px;            /* spacing between items */\n"
+"    padding: 12px 4px;          /* makes items bigger */\n"
+"    margin: 4px 0px;            /* spacing between items */\n"
 "    border-radius: 6px;     /* rounded corners */\n"
 "}\n"
 "\n"
@@ -824,8 +871,6 @@ class Ui_MainWindow(object):
 "	border: none;\n"
 "	background-color: transparent;\n"
 "}")
-        icon10 = QIcon()
-        icon10.addFile(u":/images/send.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.xBtn.setIcon(icon10)
         self.xBtn.setIconSize(QSize(16, 16))
 
@@ -1148,8 +1193,8 @@ class Ui_MainWindow(object):
 
         self.sendallBtn = QPushButton(self.sendallWidget)
         self.sendallBtn.setObjectName(u"sendallBtn")
-        self.sendallBtn.setMinimumSize(QSize(0, 30))
-        self.sendallBtn.setMaximumSize(QSize(16777215, 30))
+        self.sendallBtn.setMinimumSize(QSize(100, 30))
+        self.sendallBtn.setMaximumSize(QSize(100, 30))
         self.sendallBtn.setStyleSheet(u"QPushButton {\n"
 "    background-color: transparent;\n"
 "    color: #e6e6e6;\n"
@@ -1157,7 +1202,7 @@ class Ui_MainWindow(object):
 "    border: 2px solid #6a6a6a;   /* visible gray frame */\n"
 "    border-radius: 6px;\n"
 "\n"
-"    padding: 6px 14px;\n"
+"    padding: 6px 2px;\n"
 "    font-size: 14px;\n"
 "}\n"
 "\n"
@@ -1189,6 +1234,54 @@ class Ui_MainWindow(object):
 "")
 
         self.horizontalLayout_19.addWidget(self.sendallBtn)
+
+        self.horizontalSpacer_17 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_19.addItem(self.horizontalSpacer_17)
+
+        self.HomeCmdBtn = QPushButton(self.sendallWidget)
+        self.HomeCmdBtn.setObjectName(u"HomeCmdBtn")
+        self.HomeCmdBtn.setMinimumSize(QSize(50, 30))
+        self.HomeCmdBtn.setMaximumSize(QSize(50, 30))
+        self.HomeCmdBtn.setStyleSheet(u"QPushButton {\n"
+"    background-color: transparent;\n"
+"    color: #e6e6e6;\n"
+"\n"
+"    border: 2px solid #6a6a6a;   /* visible gray frame */\n"
+"    border-radius: 6px;\n"
+"\n"
+"    padding: 6px 2px;\n"
+"    font-size: 14px;\n"
+"}\n"
+"\n"
+"/* Hover: brighter frame + subtle overlay */\n"
+"QPushButton:hover {\n"
+"    border-color: #9a9a9a;\n"
+"    background-color: rgba(255, 255, 255, 0.04);\n"
+"}\n"
+"\n"
+"/* Pressed: darker frame + stronger overlay */\n"
+"QPushButton:pressed {\n"
+"    border-color: #b0b0b0;\n"
+"    background-color: rgba(0, 0, 0, 0.25);\n"
+"    padding-top: 7px;   /* subtle pressed effect */\n"
+"    padding-bottom: 5px;\n"
+"}\n"
+"\n"
+"/* Focus (keyboard navigation) */\n"
+"QPushButton:focus {\n"
+"    border-color: #bfbfbf;\n"
+"}\n"
+"\n"
+"/* Disabled */\n"
+"QPushButton:disabled {\n"
+"    color: #777777;\n"
+"    border-color: #444444;\n"
+"    background-color: transparent;\n"
+"}\n"
+"")
+
+        self.horizontalLayout_19.addWidget(self.HomeCmdBtn)
 
         self.horizontalSpacer_15 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -1579,9 +1672,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon11 = QIcon()
-        icon11.addFile(u":/images/media/minus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.deleteRecording.setIcon(icon11)
+        icon14 = QIcon()
+        icon14.addFile(u":/images/media/minus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.deleteRecording.setIcon(icon14)
         self.deleteRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.deleteRecording)
@@ -1604,9 +1697,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon12 = QIcon()
-        icon12.addFile(u":/images/media/play2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.startRecording.setIcon(icon12)
+        icon15 = QIcon()
+        icon15.addFile(u":/images/media/play2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.startRecording.setIcon(icon15)
         self.startRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.startRecording)
@@ -1629,9 +1722,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon13 = QIcon()
-        icon13.addFile(u":/images/media/pause2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.pauseRecording.setIcon(icon13)
+        icon16 = QIcon()
+        icon16.addFile(u":/images/media/pause2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.pauseRecording.setIcon(icon16)
         self.pauseRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.pauseRecording)
@@ -1654,9 +1747,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon14 = QIcon()
-        icon14.addFile(u":/images/media/stop2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.stopRecording.setIcon(icon14)
+        icon17 = QIcon()
+        icon17.addFile(u":/images/media/stop2.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.stopRecording.setIcon(icon17)
         self.stopRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.stopRecording)
@@ -1679,9 +1772,9 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon15 = QIcon()
-        icon15.addFile(u":/images/media/plus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.addRecording.setIcon(icon15)
+        icon18 = QIcon()
+        icon18.addFile(u":/images/media/plus.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.addRecording.setIcon(icon18)
         self.addRecording.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_13.addWidget(self.addRecording)
@@ -1705,11 +1798,11 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_14.addItem(self.horizontalSpacer_14)
 
-        self.previousExec = QPushButton(self.execWidget)
-        self.previousExec.setObjectName(u"previousExec")
-        self.previousExec.setMinimumSize(QSize(32, 32))
-        self.previousExec.setMaximumSize(QSize(32, 32))
-        self.previousExec.setStyleSheet(u"QPushButton{\n"
+        self.flushExec = QPushButton(self.execWidget)
+        self.flushExec.setObjectName(u"flushExec")
+        self.flushExec.setMinimumSize(QSize(32, 32))
+        self.flushExec.setMaximumSize(QSize(32, 32))
+        self.flushExec.setStyleSheet(u"QPushButton{\n"
 "	border: none;\n"
 "	background-color: transparent;\n"
 "}\n"
@@ -1723,12 +1816,10 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon16 = QIcon()
-        icon16.addFile(u":/images/media/backward.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.previousExec.setIcon(icon16)
-        self.previousExec.setIconSize(QSize(32, 32))
+        self.flushExec.setIcon(icon13)
+        self.flushExec.setIconSize(QSize(24, 24))
 
-        self.horizontalLayout_14.addWidget(self.previousExec)
+        self.horizontalLayout_14.addWidget(self.flushExec)
 
         self.playExec = QPushButton(self.execWidget)
         self.playExec.setObjectName(u"playExec")
@@ -1748,7 +1839,7 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        self.playExec.setIcon(icon12)
+        self.playExec.setIcon(icon15)
         self.playExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.playExec)
@@ -1771,7 +1862,7 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        self.pauseExec.setIcon(icon13)
+        self.pauseExec.setIcon(icon16)
         self.pauseExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.pauseExec)
@@ -1794,16 +1885,16 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        self.stopExec.setIcon(icon14)
+        self.stopExec.setIcon(icon17)
         self.stopExec.setIconSize(QSize(32, 32))
 
         self.horizontalLayout_14.addWidget(self.stopExec)
 
-        self.nextExec = QPushButton(self.execWidget)
-        self.nextExec.setObjectName(u"nextExec")
-        self.nextExec.setMinimumSize(QSize(32, 32))
-        self.nextExec.setMaximumSize(QSize(32, 32))
-        self.nextExec.setStyleSheet(u"QPushButton{\n"
+        self.restartExec = QPushButton(self.execWidget)
+        self.restartExec.setObjectName(u"restartExec")
+        self.restartExec.setMinimumSize(QSize(32, 32))
+        self.restartExec.setMaximumSize(QSize(32, 32))
+        self.restartExec.setStyleSheet(u"QPushButton{\n"
 "	border: none;\n"
 "	background-color: transparent;\n"
 "}\n"
@@ -1817,12 +1908,10 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #444444;\n"
 "}")
-        icon17 = QIcon()
-        icon17.addFile(u":/images/media/forward.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.nextExec.setIcon(icon17)
-        self.nextExec.setIconSize(QSize(32, 32))
+        self.restartExec.setIcon(icon7)
+        self.restartExec.setIconSize(QSize(28, 28))
 
-        self.horizontalLayout_14.addWidget(self.nextExec)
+        self.horizontalLayout_14.addWidget(self.restartExec)
 
         self.horizontalSpacer_13 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -1861,9 +1950,9 @@ class Ui_MainWindow(object):
 "	border: 1px solid #cccccc;\n"
 "}\n"
 "")
-        icon18 = QIcon()
-        icon18.addFile(u":/images/media/import.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.importBtn.setIcon(icon18)
+        icon19 = QIcon()
+        icon19.addFile(u":/images/media/import.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.importBtn.setIcon(icon19)
         self.importBtn.setIconSize(QSize(22, 22))
 
         self.fileWidget.addWidget(self.importBtn)
@@ -1907,13 +1996,14 @@ class Ui_MainWindow(object):
 "    border-radius: 6px;\n"
 "    padding: 4px;\n"
 "    outline: none;\n"
+"	font-size: 10px;\n"
 "}\n"
 "\n"
 "QListWidget::item {\n"
 "    background: #34363b;\n"
 "    color: white;\n"
-"    padding: 12px;          /* makes items bigger */\n"
-"    margin: 4px;            /* spacing between items */\n"
+"    padding: 4px 4px;          /* makes items bigger */\n"
+"    margin: 4px 0px;            /* spacing between items */\n"
 "    border-radius: 6px;     /* rounded corners */\n"
 "}\n"
 "\n"
@@ -1958,10 +2048,46 @@ class Ui_MainWindow(object):
         self.stackedWidget.addWidget(self.page_draw)
         self.page_chess = QWidget()
         self.page_chess.setObjectName(u"page_chess")
-        self.label_5 = QLabel(self.page_chess)
+        self.chessWidget_2 = QWidget(self.page_chess)
+        self.chessWidget_2.setObjectName(u"chessWidget_2")
+        self.chessWidget_2.setGeometry(QRect(470, 30, 300, 300))
+        self.chessWidget_2.setMinimumSize(QSize(300, 300))
+        self.chessWidget_2.setStyleSheet(u"background-color: rgb(21, 21, 21);")
+        self.groupBox = QGroupBox(self.page_chess)
+        self.groupBox.setObjectName(u"groupBox")
+        self.groupBox.setGeometry(QRect(490, 350, 261, 201))
+        self.groupBox.setStyleSheet(u"QGroupBox {\n"
+"    font-family: \"Segoe UI\";\n"
+"    font-size: 18px;\n"
+"}\n"
+"QGroupBox::title {\n"
+"    letter-spacing: 2px;\n"
+"	subcontrol-position: top center;\n"
+"}\n"
+"")
+        self.widget = QWidget(self.page_chess)
+        self.widget.setObjectName(u"widget")
+        self.widget.setGeometry(QRect(20, 20, 420, 531))
+        self.widget.setMinimumSize(QSize(420, 0))
+        self.widget.setStyleSheet(u"background-color: rgb(47, 47, 47);")
+        self.verticalLayout_17 = QVBoxLayout(self.widget)
+        self.verticalLayout_17.setObjectName(u"verticalLayout_17")
+        self.label_5 = QLabel(self.widget)
         self.label_5.setObjectName(u"label_5")
-        self.label_5.setGeometry(QRect(230, 250, 151, 71))
-        self.label_5.setFont(font11)
+        font12 = QFont()
+        font12.setPointSize(22)
+        self.label_5.setFont(font12)
+        self.label_5.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.verticalLayout_17.addWidget(self.label_5)
+
+        self.chessWidget = QWidget(self.widget)
+        self.chessWidget.setObjectName(u"chessWidget")
+        self.chessWidget.setMinimumSize(QSize(400, 400))
+        self.chessWidget.setStyleSheet(u"background-color: rgb(21, 21, 21);")
+
+        self.verticalLayout_17.addWidget(self.chessWidget)
+
         self.stackedWidget.addWidget(self.page_chess)
 
         self.verticalLayout_3.addWidget(self.stackedWidget)
@@ -1994,7 +2120,7 @@ class Ui_MainWindow(object):
         self.execBtn.toggled.connect(self.fileLabel.setVisible)
         self.execBtn.toggled.connect(self.importBtn.setVisible)
 
-        self.stackedWidget.setCurrentIndex(0)
+        self.stackedWidget.setCurrentIndex(2)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -2018,6 +2144,10 @@ class Ui_MainWindow(object):
         self.ChessBtn2.setText(QCoreApplication.translate("MainWindow", u"  Chess AI", None))
         self.GithubBtn2.setText(QCoreApplication.translate("MainWindow", u"  Github", None))
         self.SidebarBtn.setText("")
+        self.resetLeftBtn.setText("")
+        self.resetRightBtn.setText("")
+        self.abortBtn.setText("")
+        self.devBtn.setText("")
         self.label_4.setText(QCoreApplication.translate("MainWindow", u"Graphical Interface - Projet 3", None))
         self.MinimizeBtn.setText("")
         self.MaximizeBtn.setText("")
@@ -2055,7 +2185,8 @@ class Ui_MainWindow(object):
         self.muLabel.setText(QCoreApplication.translate("MainWindow", u"0", None))
         self.muminLabel.setText(QCoreApplication.translate("MainWindow", u"-200", None))
         self.mumaxLabel.setText(QCoreApplication.translate("MainWindow", u"200", None))
-        self.sendallBtn.setText(QCoreApplication.translate("MainWindow", u"Send all coordinates", None))
+        self.sendallBtn.setText(QCoreApplication.translate("MainWindow", u"Send (X, Y, Z)", None))
+        self.HomeCmdBtn.setText(QCoreApplication.translate("MainWindow", u"Home", None))
         self.label_13.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Joint Angles  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_14.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Gripper Activation  \u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_10.setText(QCoreApplication.translate("MainWindow", u"Mode:", None))
@@ -2073,15 +2204,16 @@ class Ui_MainWindow(object):
         self.pauseRecording.setText("")
         self.stopRecording.setText("")
         self.addRecording.setText("")
-        self.previousExec.setText("")
+        self.flushExec.setText("")
         self.playExec.setText("")
         self.pauseExec.setText("")
         self.stopExec.setText("")
-        self.nextExec.setText("")
+        self.restartExec.setText("")
         self.importBtn.setText(QCoreApplication.translate("MainWindow", u" Import", None))
         self.fileLabel.setText(QCoreApplication.translate("MainWindow", u"No file selected", None))
         self.label_17.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Position List  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"Draw", None))
-        self.label_5.setText(QCoreApplication.translate("MainWindow", u"Chess", None))
+        self.groupBox.setTitle(QCoreApplication.translate("MainWindow", u"Chess Settings", None))
+        self.label_5.setText(QCoreApplication.translate("MainWindow", u"Not yet connected", None))
     # retranslateUi
 

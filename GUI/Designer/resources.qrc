@@ -1,10 +1,13 @@
 <RCC>
   <qresource>
+    <file>images/abort.png</file>
     <file>images/media/backward.png</file>
     <file>images/media/forward.png</file>
     <file>images/media/import.png</file>
     <file>images/media/minus.png</file>
     <file>images/media/pause2.png</file>
+    <file>images/reset_left.png</file>
+    <file>images/reset_right.png</file>
     <file>images/media/play2.png</file>
     <file>images/media/plus.png</file>
     <file>images/media/stop2.png</file>

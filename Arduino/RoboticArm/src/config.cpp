@@ -1,18 +1,30 @@
 #include "config.h"
 
 // ===========================
-// HARDWARE CONFIGURATION
+// Stepper CONFIGURATION
 // ===========================
-uint8_t CLK[N] = {6, 4, 2};
-uint8_t DIR[N] = {7, 5, 3};
-int RESOLUTION[N] = {8*200, 8*200, 8*200};
-float max_speed[N] = {50., 15., 15.};
-float acceleration[N] = {20., 10., 10.};
-bool inv_dir[N] = {true, false, false};
+uint8_t CLK[N] = {8, 2, 5};
+uint8_t DIR[N] = {9, 3, 6};
+uint8_t LS[N] = {11, 13 , 12}; bool inv_LS[N] = {false, true, true};
+float RESOLUTION[N] = {8.f*400.f*4.f, 8.f*200.f*54.5f*1.011f, 8.f*200.f*54.5f*0.978f};
+float max_speed[N] = {30., 15., 15.};
+float reset_speed[N] = {15., 5., 5.};
+float acceleration[N] = {50., 20., 20.};
+bool inv_dir[N] = {false, true, false};
 
 float L1 = 250.0;
 float L2 = 200.0;
-float L3 = 150.0;
+float L3 = 180.0;
+float L3z = 33.0;
+
+// ===========================
+// DXL CONFIGURATION
+// ===========================
+int min_position_ax12 = 0;
+int max_position_ax12 = 200;
+int min_position_mx28 = 50;
+int def_position_mx28 = 1425;
+int max_position_mx28 = 2900;
 
 // ===========================
 // TIMING VARIABLES
@@ -25,6 +37,20 @@ unsigned long current_time_millis = 0;
 // ===========================
 float current_angle[N] = {0.0, 0.0, 0.0};
 int current_step[N] = {0, 0, 0};
+float current_gamma = 1000.0;
+float goal_mu = 0.0;
+bool update_gripper = false;
+float gamma_diff_threshold = 1.0;
+
+// ===========================
+// HOME VARIABLES
+// ===========================
+bool homed[N] = {false, false, false};
+bool homed_all = true;
+unsigned long last_homing_step[N] = {0, 0, 0};
+float homing_delay[N] = {2000, 2000, 2000};
+bool inv_dir_homing[N] = {false, true, false};
+float calibrated_angles[N] = {-3, -16.8,43.8+1.5};
 
 // ===========================
 // KINEMATICS RESULTS
@@ -43,6 +69,7 @@ bool currently_following_trajectory = false;
 bool currently_drawing_circle = false;
 bool currently_drawing_line = false;
 bool currently_interpolating = false;
+bool currently_following_planned = false;
 
 unsigned long trajectory_check_interval = 250;
 unsigned long last_trajectory_check_interval = 0;
@@ -88,3 +115,17 @@ unsigned long last_feedback_time = 0;
 unsigned long feedback_interval = 50e3;
 bool feedback_enabled = true;
 bool time_feedback_enabled = true;
+
+// ===========================
+// LIST EXECUTION
+// ===========================
+bool executing_list = false;
+Waypoint waypoint_buffer[MAX_WAYPOINTS];
+uint8_t waypoint_count = 0;
+uint8_t waypoint_index = 0;
+bool done_waypoint = true;
+bool paused_execution = false;
+
+unsigned long segment_planned_time = 0;
+unsigned long total_planned_time = 0;
+bool must_execute_planned = false;

@@ -1,5 +1,5 @@
 from Designer.ui_gui import Ui_MainWindow
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog, QAbstractItemView
 from PySide6.QtCore import Qt, QPoint, QRect, QUrl, QTimer
 from PySide6.QtGui import QDesktopServices
 from home import AspectRatioLabel
@@ -12,7 +12,7 @@ import math
 import serial
 import serial.tools.list_ports
 import numpy as np
-from kinematics import direct_kinematics
+from kinematics import direct_kinematics, inverse_kinematics, gamma_to_mu, mu_to_gamma
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -25,6 +25,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.execWidget.setHidden(True)
         self.importBtn.setHidden(True)
         self.fileLabel.setHidden(True)
+        
+        # Flag to prevent recursive prohibited zone updates
+        self._updating_prohibited_zones = False
         
         # Load parameters from JSON
         self._load_parameters()
@@ -62,6 +65,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.GithubBtn2.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/SirajHabsaia/RobotArm")))
 
         self.MaximizeBtn.clicked.connect(self.toggle_window)
+        
+        # Connect reset and home command buttons
+        self.resetLeftBtn.clicked.connect(self._on_reset_left)
+        self.resetRightBtn.clicked.connect(self._on_reset_right)
+        self.HomeCmdBtn.clicked.connect(self._on_home_command)
 
         # Enable dragging from title_widget
         self._drag_pos = None
@@ -89,6 +97,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self.file_loaded = False
         
+        # Track if we're currently executing a trajectory
+        self.executing_trajectory = False
+        
         # Waypoint tracking
         self.waypoints = []  # List of tuples (x, y, z, mu, gripper)
         self.current_waypoint = None  # Temporary waypoint before adding to list (x, y)
@@ -115,6 +126,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect import button for Execute mode
         self.importBtn.clicked.connect(self._on_import_waypoints)
         
+        # Connect play, pause, stop buttons for Execute mode
+        self.playExec.clicked.connect(self._on_play_exec)
+        self.pauseExec.clicked.connect(self._on_pause_exec)
+        self.stopExec.clicked.connect(self._on_stop_exec)
+        self.flushExec.clicked.connect(self._on_flush_exec)
+        self.restartExec.clicked.connect(self._on_restart_exec)
+        
         # COM port management
         self.serial_connection = None
         self.connected_port = None
@@ -140,6 +158,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.pending_alpha = None
         self.pending_beta = None
         
+        # Gripper command debouncing - separate timer
+        self.gripper_debounce_timer = QTimer()
+        self.gripper_debounce_timer.setSingleShot(True)
+        self.gripper_debounce_timer.setInterval(100)  # 100ms debounce
+        self.gripper_debounce_timer.timeout.connect(self._send_gripper_command)
+        
+        # Store pending gripper value
+        self.pending_gripper = None
+        
+        # Gamma command debouncing - separate timer
+        self.gamma_debounce_timer = QTimer()
+        self.gamma_debounce_timer.setSingleShot(True)
+        self.gamma_debounce_timer.setInterval(100)  # 100ms debounce
+        self.gamma_debounce_timer.timeout.connect(self._send_gamma_command)
+        
+        # Store pending gamma value
+        self.pending_gamma = None
+        
         # Serial reading timer for feedback
         self.serial_read_timer = QTimer()
         self.serial_read_timer.setInterval(20)  # Read every 20ms
@@ -147,9 +183,32 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.serial_buffer = ""  # Buffer for incomplete serial data
         
         # Current actual position from Arduino feedback
-        self.current_x = 0.0
+        self.current_x = 200.0
         self.current_y = 0.0
-        self.current_z = 0.0
+        self.current_z = 250.0
+        
+        # Current joint angles from Arduino feedback
+        self.current_alpha = 0.0
+        self.current_gamma = 0.0
+        self.current_mu = 0.0
+        
+        # Flag to track whether we're controlling mu (True) or gamma (False)
+        self.controlling_mu = True
+        
+        # Last sent gripper percentage (0-100)
+        self.last_gripper_percentage = 50
+        
+        # Developer mode flag
+        self.devmode = True
+        
+        # Connect developer buttons
+        self.abortBtn.clicked.connect(self._on_abort)
+        self.devBtn.clicked.connect(self._on_dev_send)
+        
+        # Set visibility based on devmode
+        self.abortBtn.setVisible(self.devmode)
+        self.devBtn.setVisible(self.devmode)
+        self.devLineEdit.setVisible(self.devmode)
     
     def _load_parameters(self):
         """Load parameters from params.json"""
@@ -217,10 +276,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.xBtn.clicked.connect(lambda: self._send_single_cartesian_command('x'))
         self.yBtn.clicked.connect(lambda: self._send_single_cartesian_command('y'))
         self.zBtn.clicked.connect(lambda: self._send_single_cartesian_command('z'))
-        self.muBtn.clicked.connect(lambda: self._send_single_cartesian_command('mu'))
+        self.muBtn.clicked.connect(self._send_mu_command)
         
         # Connect send all button
         self.sendallBtn.clicked.connect(self._send_all_cartesian_command)
+        
+        # Setup gripper slider for Manip page
+        self._setup_gripper_slider()
         
         # Store last valid x,y values for deadzone handling
         self._last_valid_x = self.params["xdef"]
@@ -409,6 +471,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Invalid input, revert lineEdit to current slider value
             self.gripperLineEditProgram.setText(str(self.gripperSliderProgram.value()))
     
+    def _setup_gripper_slider(self):
+        """Setup gripper slider for Manip page"""
+        gripper_min = self.params.get("grippermin", 0)
+        gripper_max = self.params.get("grippermax", 180)
+        gripper_def = self.params.get("gripperdef", 90)
+        
+        # Setup slider range and default value
+        self.griperSlider.setMinimum(0)
+        self.griperSlider.setMaximum(100)
+        
+        # Calculate default percentage (normalize from angle range to 0-100)
+        default_percentage = int(((gripper_def - gripper_min) / (gripper_max - gripper_min)) * 100)
+        self.griperSlider.setValue(default_percentage)
+        
+        # Connect slider to debounced handler
+        self.griperSlider.valueChanged.connect(self._on_gripper_slider_changed)
+    
     def _update_xy_slider_lineedit(self, value, axis):
         """Update lineEdit when x or y slider moves, respecting Rmin deadzone (label updated from feedback)"""
         # Get current values and UI elements
@@ -485,7 +564,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self._last_valid_y = value
     
     def _send_single_cartesian_command(self, axis):
-        """Send cartesian command when individual axis button is pressed"""
+        """Calculate inverse kinematics and update ring sliders when individual axis button is pressed"""
         # Synchronize lineEdit with slider first
         if axis == 'x':
             lineedit = self.xlineEdit
@@ -496,26 +575,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         elif axis == 'z':
             lineedit = self.zlineEdit
             slider = self.zSlider
-        else:  # mu - not implemented yet
+        else:
             return
         
         try:
             value = int(lineedit.text())
             # Validate range
             if slider.minimum() <= value <= slider.maximum():
-                slider.blockSignals(True)
                 slider.setValue(value)
-                slider.blockSignals(False)
             else:
                 lineedit.setText(str(slider.value()))
                 return
         except ValueError:
             lineedit.setText(str(slider.value()))
-            return
-        
-        # Send command using slider value and current position for other axes
-        if not self.serial_connection or not self.serial_connection.is_open:
-            print("Not connected to Arduino")
             return
         
         # Get the target coordinate from the slider that was changed
@@ -533,12 +605,108 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             y = self.current_y
             z = self.zSlider.value()
         
-        # Send cartesian command: ix<x>y<y>z<z>
-        command = f"ix{x:.2f}y{y:.2f}z{z:.2f}\n"
+        # Calculate inverse kinematics to get joint angles
+        try:
+            # Use correct mu value based on control mode
+            if self.controlling_mu:
+                mu_rad = np.radians(self.current_mu)
+            else:
+                # Convert gamma to mu for inverse kinematics
+                mu_rad = gamma_to_mu(np.radians(self.current_gamma), np.radians(self.current_alpha))
+            
+            angles = inverse_kinematics(x, y, z, mu=mu_rad)
+            
+            # Convert radians to degrees
+            theta_deg = np.degrees(angles[0])
+            alpha_deg = np.degrees(angles[1])
+            beta_deg = np.degrees(angles[2])
+            
+            # Normalize theta to 0-360 range
+            theta_deg = theta_deg % 360
+            
+            # Update current_alpha and recalculate gamma if needed
+            self.current_alpha = alpha_deg
+            if self.controlling_mu:
+                # Recalculate gamma from mu with new alpha
+                gamma_value = mu_to_gamma(np.radians(self.current_mu), np.radians(alpha_deg))
+                gamma_degrees = np.degrees(gamma_value)
+                self.current_gamma = gamma_degrees
+                # Update gamma slider without triggering its change event
+                self.gamma_slider.blockSignals(True)
+                self.gamma_slider.setValue(gamma_degrees)
+                self.gamma_slider.blockSignals(False)
+            
+            # Update ring sliders with calculated angles (without blocking signals)
+            # This will automatically trigger the angular command to be sent
+            self.theta_slider.setValue(theta_deg)
+            self.alpha_slider.setValue(alpha_deg)
+            self.beta_slider.setValue(beta_deg)
+            
+            print(f"Calculated angles: θ={theta_deg:.2f}° α={alpha_deg:.2f}° β={beta_deg:.2f}°")
+            
+        except Exception as e:
+            print(f"Inverse kinematics error: {e}")
+    
+    def _send_mu_command(self):
+        """Send mu command when mu button is pressed"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        # Get mu value from lineEdit
+        try:
+            mu_value = int(self.mulineEdit.text())
+            # Validate range
+            if self.muSlider.minimum() <= mu_value <= self.muSlider.maximum():
+                # Update slider to match lineEdit
+                self.muSlider.setValue(mu_value)
+            else:
+                print(f"Mu value {mu_value} out of range")
+                return
+        except ValueError:
+            print("Invalid mu value in line edit")
+            return
+        
+        # Send mu command: m<mu>
+        command = f"m{mu_value}\n"
         
         try:
             self.serial_connection.write(command.encode())
             print(f"Sent: {command.strip()}")
+            
+            # Instantly update the mu label with the sent value
+            self.muLabel.setText(str(mu_value))
+            
+            # Set flag to indicate we're controlling mu
+            self.controlling_mu = True
+            self.current_mu = mu_value
+            
+            # Calculate gamma from mu using current alpha and update gamma slider
+            gamma_value = mu_to_gamma(np.radians(mu_value), np.radians(self.current_alpha))
+            gamma_degrees = np.degrees(gamma_value)
+            self.current_gamma = gamma_degrees
+            
+            # Update gamma slider without triggering its change event
+            self.gamma_slider.blockSignals(True)
+            self.gamma_slider.setValue(gamma_degrees)
+            self.gamma_slider.blockSignals(False)
+            
+            # Calculate and update XYZ position using direct kinematics
+            theta_rad = np.radians(self.theta_slider.value())
+            alpha_rad = np.radians(self.alpha_slider.value())
+            beta_rad = np.radians(self.beta_slider.value())
+            gamma_rad = gamma_value
+            
+            position = direct_kinematics(theta_rad, alpha_rad, beta_rad, gamma_rad)
+            self.current_x = position[0]
+            self.current_y = position[1]
+            self.current_z = position[2]
+            
+            # Update XYZ labels
+            self.xLabel.setText(f"{self.current_x:.1f}")
+            self.yLabel.setText(f"{self.current_y:.1f}")
+            self.zLabel.setText(f"{self.current_z:.1f}")
+            
         except serial.SerialException as e:
             print(f"Serial error: {e}")
             self._on_disconnect_com()
@@ -585,15 +753,47 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print("Invalid values in line edits")
             return
         
-        # Send cartesian command: ix<x>y<y>z<z>
-        command = f"ix{x:.2f}y{y:.2f}z{z:.2f}\n"
-        
+        # Calculate inverse kinematics to get joint angles
         try:
-            self.serial_connection.write(command.encode())
-            print(f"Sent: {command.strip()}")
-        except serial.SerialException as e:
-            print(f"Serial error: {e}")
-            self._on_disconnect_com()
+            # Use correct mu value based on control mode
+            if self.controlling_mu:
+                mu_rad = np.radians(self.current_mu)
+            else:
+                # Convert gamma to mu for inverse kinematics
+                mu_rad = gamma_to_mu(np.radians(self.current_gamma), np.radians(self.current_alpha))
+            
+            angles = inverse_kinematics(x, y, z, mu=mu_rad)
+            
+            # Convert radians to degrees
+            theta_deg = np.degrees(angles[0])
+            alpha_deg = np.degrees(angles[1])
+            beta_deg = np.degrees(angles[2])
+            
+            # Normalize theta to 0-360 range
+            theta_deg = theta_deg % 360
+            
+            # Update current_alpha and recalculate gamma if needed
+            self.current_alpha = alpha_deg
+            if self.controlling_mu:
+                # Recalculate gamma from mu with new alpha
+                gamma_value = mu_to_gamma(np.radians(self.current_mu), np.radians(alpha_deg))
+                gamma_degrees = np.degrees(gamma_value)
+                self.current_gamma = gamma_degrees
+                # Update gamma slider without triggering its change event
+                self.gamma_slider.blockSignals(True)
+                self.gamma_slider.setValue(gamma_degrees)
+                self.gamma_slider.blockSignals(False)
+            
+            # Update ring sliders with calculated angles
+         
+            self.theta_slider.setValue(theta_deg)
+            self.alpha_slider.setValue(alpha_deg)
+            self.beta_slider.setValue(beta_deg)
+            
+            print(f"Calculated angles: θ={theta_deg:.2f}° α={alpha_deg:.2f}° β={beta_deg:.2f}°")
+            
+        except Exception as e:
+            print(f"Inverse kinematics error: {e}")
     
     def _enable_mouse_tracking(self, widget):
         """Recursively enable mouse tracking for widget and all children"""
@@ -663,6 +863,91 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.theta_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('theta', v))
         self.alpha_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('alpha', v))
         self.beta_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('beta', v))
+        self.gamma_slider.valueChanged.connect(lambda v: self._on_gamma_slider_changed(v))
+        
+        # Connect alpha and beta to update each other's prohibited zones
+        self.alpha_slider.valueChanged.connect(self._update_beta_prohibited_zone)
+        self.beta_slider.valueChanged.connect(self._update_alpha_prohibited_zone)
+        
+        # Initialize prohibited zones
+        self._update_alpha_prohibited_zone()
+        self._update_beta_prohibited_zone()
+    
+    def _update_alpha_prohibited_zone(self):
+        """Update alpha slider's prohibited zone based on current beta value"""
+        if self._updating_prohibited_zones:
+            return
+        
+        self._updating_prohibited_zones = True
+        try:
+            # Constraint: alpha - beta < diffmax => alpha < beta + diffmax
+            # Prohibited zone: alpha >= beta + diffmax (from min_prohibited to max)
+            beta_value = self.beta_slider.value()
+            diffmax = self.params.get('diffmax', 50)
+            
+            # Calculate the minimum prohibited alpha value
+            min_prohibited_alpha = beta_value + diffmax
+            
+            # Get alpha range
+            alpha_min = self.params['alphamin']
+            alpha_max = self.params['alphamax']
+            
+            if min_prohibited_alpha >= alpha_max:
+                # No prohibited zone needed (all values are valid)
+                self.alpha_slider.prohibited_start = -1
+                self.alpha_slider.prohibited_end = -1
+            elif min_prohibited_alpha <= alpha_min:
+                # Entire range is prohibited (shouldn't happen in normal operation)
+                self.alpha_slider.prohibited_start = self.alpha_slider.min_angle
+                self.alpha_slider.prohibited_end = self.alpha_slider.max_angle
+            else:
+                # Calculate angle for the minimum prohibited value
+                prohibited_start_angle = self.alpha_slider.angle_for_value(min_prohibited_alpha)
+                # Prohibited zone is from prohibited_start_angle to max_angle
+                self.alpha_slider.prohibited_start = prohibited_start_angle
+                self.alpha_slider.prohibited_end = self.alpha_slider.max_angle
+            
+            self.alpha_slider.update()
+        finally:
+            self._updating_prohibited_zones = False
+    
+    def _update_beta_prohibited_zone(self):
+        """Update beta slider's prohibited zone based on current alpha value"""
+        if self._updating_prohibited_zones:
+            return
+        
+        self._updating_prohibited_zones = True
+        try:
+            # Constraint: alpha - beta < diffmax => beta > alpha - diffmax
+            # Prohibited zone: beta <= alpha - diffmax (from min to max_prohibited)
+            alpha_value = self.alpha_slider.value()
+            diffmax = self.params.get('diffmax', 50)
+            
+            # Calculate the maximum prohibited beta value
+            max_prohibited_beta = alpha_value - diffmax
+            
+            # Get beta range
+            beta_min = self.params['betamin']
+            beta_max = self.params['betamax']
+            
+            if max_prohibited_beta <= beta_min:
+                # No prohibited zone needed (all values are valid)
+                self.beta_slider.prohibited_start = -1
+                self.beta_slider.prohibited_end = -1
+            elif max_prohibited_beta >= beta_max:
+                # Entire range is prohibited (shouldn't happen)
+                self.beta_slider.prohibited_start = self.beta_slider.min_angle
+                self.beta_slider.prohibited_end = self.beta_slider.max_angle
+            else:
+                # Calculate angle for the maximum prohibited value
+                prohibited_end_angle = self.beta_slider.angle_for_value(max_prohibited_beta)
+                # Prohibited zone is from min_angle to prohibited_end_angle
+                self.beta_slider.prohibited_start = self.beta_slider.min_angle
+                self.beta_slider.prohibited_end = prohibited_end_angle
+            
+            self.beta_slider.update()
+        finally:
+            self._updating_prohibited_zones = False
     
     def _setup_3d_viewer(self):
         """Setup the 3D robot viewer and embed it in ThreeDWidget1"""
@@ -692,8 +977,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             xmax=self.params["Rmax"],
             ymin=-self.params["Rmax"],
             ymax=self.params["Rmax"],
-            Rmin=150,  # Default Rmin value
-            Rmax=350,  # Default Rmax value
+            Rmin=self.params["Rmin"],  # Default Rmin value
+            Rmax=self.params["Rmax"],  # Default Rmax value
             parent=self.xyControl
         )
         
@@ -735,6 +1020,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.muLineEditProgram.setEnabled(True)
         self.gripperSliderProgram.setEnabled(True)
         self.gripperLineEditProgram.setEnabled(True)
+        # Enable list widget for user interaction in Record mode
+        self.positionlistWidget.setEnabled(True)
         # Clear all waypoints when switching to Record mode
         self._clear_all_waypoints()
         # Clear file label
@@ -753,6 +1040,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.muLineEditProgram.setEnabled(False)
         self.gripperSliderProgram.setEnabled(False)
         self.gripperLineEditProgram.setEnabled(False)
+        # Disable list widget to prevent user selection (programmatic selection still works)
+        self.positionlistWidget.setEnabled(False)
     
     def _on_start_recording(self):
         """Start or resume recording waypoints"""
@@ -792,7 +1081,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def _on_add_waypoint(self):
         """Add current waypoint to the list"""
-        if self.current_waypoint and self.record_mode and self.recording_started:
+        if not self.record_mode or not self.recording_started:
+            return
+        
+        # Check if we have a current waypoint from graph click
+        if self.current_waypoint:
             x, y = self.current_waypoint
             # Get Z, mu, and gripper values from sliders
             z = self.zSliderProgram.value()
@@ -811,6 +1104,30 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             
             # Clear current waypoint to allow selecting next point
             self.current_waypoint = None
+            
+        elif len(self.waypoints) > 0:
+            # No graph click, but we have previous waypoints
+            # Use x,y from last waypoint and z,mu,gripper from sliders
+            last_waypoint = self.waypoints[-1]
+            x = last_waypoint[0]
+            y = last_waypoint[1]
+            
+            # Get Z, mu, and gripper values from sliders
+            z = self.zSliderProgram.value()
+            mu = self.muSliderProgram.value()
+            gripper = self.gripperSliderProgram.value()
+            
+            # Add to waypoints list with mu and gripper values
+            self.waypoints.append((x, y, z, mu, gripper))
+            
+            # Add to graph (permanent waypoint - reuse same x,y position)
+            self.coord_system.add_waypoint(x, y)
+            
+            # Add to list widget with mu and gripper values
+            waypoint_text = f"({x:.1f}, {y:.1f}, {z:.1f}, mu:{mu}, g:{gripper})"
+            self.positionlistWidget.addItem(waypoint_text)
+            
+            print(f"Added waypoint using previous x,y: ({x:.1f}, {y:.1f}) with current z={z}, mu={mu}, gripper={gripper}")
     
     def _on_delete_waypoint(self):
         """Delete selected waypoint from list and graph"""
@@ -951,6 +1268,157 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.coord_system.clear_waypoints()
         # Reset selection
         self.selected_waypoint_index = None
+    
+    def _on_play_exec(self):
+        """Send waypoints to Arduino when play button is pressed in Execute mode"""
+        # Only allow in Execute mode
+        if self.record_mode:
+            print("Cannot play in Record mode")
+            return
+        
+        # Check if connected to Arduino
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            # If already executing, send resume command
+            if self.executing_trajectory:
+                command = "o\n"
+                self.serial_connection.write(command.encode())
+                print(f"Sent resume: {command.strip()}")
+            else:
+                # Check if we have waypoints loaded
+                if not self.waypoints:
+                    print("No waypoints loaded")
+                    return
+                
+                # Format waypoints into command string
+                # Format: n<count>,x<x>y<y>z<z>m<mu>g<gripper>,x<x>y<y>z<z>m<mu>g<gripper>,...
+                waypoint_count = len(self.waypoints)
+                command_parts = [f"n{waypoint_count}"]
+                
+                for x, y, z, mu, gripper in self.waypoints:
+                    # Format each waypoint: x<x>y<y>z<z>m<mu>g<gripper>
+                    waypoint_str = f"x{x:.1f}y{y:.1f}z{z:.1f}m{mu}g{gripper}"
+                    command_parts.append(waypoint_str)
+                
+                # Join with commas
+                command = ",".join(command_parts) + "\n"
+                
+                self.serial_connection.write(command.encode())
+                print(f"Sent trajectory: {command.strip()}")
+                
+                # Set flag to indicate we're now executing
+                self.executing_trajectory = True
+                
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_pause_exec(self):
+        """Send pause command to Arduino when pause button is pressed in Execute mode"""
+        # Only allow in Execute mode
+        if self.record_mode:
+            print("Cannot pause in Record mode")
+            return
+        
+        # Check if connected to Arduino
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            command = "p\n"
+            self.serial_connection.write(command.encode())
+            print(f"Sent pause: {command.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_stop_exec(self):
+        """Send stop command to Arduino when stop button is pressed in Execute mode"""
+        # Only allow in Execute mode
+        if self.record_mode:
+            print("Cannot stop in Record mode")
+            return
+        
+        # Check if connected to Arduino
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            command = "s\n"
+            self.serial_connection.write(command.encode())
+            print(f"Sent stop: {command.strip()}")
+            
+            # Reset executing flag
+            self.executing_trajectory = False
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_flush_exec(self):
+        """Flush everything: send stop signal, clear graph, list, and reset flags"""
+        # Send stop command to Arduino
+        if self.serial_connection and self.serial_connection.is_open:
+            try:
+                command = "s\n"
+                self.serial_connection.write(command.encode())
+                print(f"Sent stop (flush): {command.strip()}")
+            except serial.SerialException as e:
+                print(f"Serial error: {e}")
+                self._on_disconnect_com()
+        
+        # Clear all waypoints
+        self._clear_all_waypoints()
+        
+        # Reset executing flag
+        self.executing_trajectory = False
+        
+        print("Flushed: Cleared waypoints, graph, and reset execution state")
+    
+    def _on_restart_exec(self):
+        """Restart execution: reset pause and send waypoint list again"""
+        # Only allow in Execute mode
+        if self.record_mode:
+            print("Cannot restart in Record mode")
+            return
+        
+        # Check if we have waypoints loaded
+        if not self.waypoints:
+            print("No waypoints to restart")
+            return
+        
+        # Check if connected to Arduino
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            # Format waypoints into command string
+            # Format: n<count>,x<x>y<y>z<z>m<mu>g<gripper>,x<x>y<y>z<z>m<mu>g<gripper>,...
+            waypoint_count = len(self.waypoints)
+            command_parts = [f"n{waypoint_count}"]
+            
+            for x, y, z, mu, gripper in self.waypoints:
+                # Format each waypoint: x<x>y<y>z<z>m<mu>g<gripper>
+                waypoint_str = f"x{x:.1f}y{y:.1f}z{z:.1f}m{mu}g{gripper}"
+                command_parts.append(waypoint_str)
+            
+            # Join with commas
+            command = ",".join(command_parts) + "\n"
+            
+            self.serial_connection.write(command.encode())
+            print(f"Sent restart trajectory: {command.strip()}")
+            
+            # Set flag to indicate we're now executing
+            self.executing_trajectory = True
+            
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
 
     def switch_menu(self, idx):
         self.stackedWidget.setCurrentIndex(idx)
@@ -1177,10 +1645,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.connected_port = None
     
     def _on_disconnect_com(self):
-        """Disconnect from the current COM port"""
+        """Disconnect from the current COM port and reset all values to defaults"""
         # Stop timers
         self.serial_read_timer.stop()
         self.command_debounce_timer.stop()
+        self.gripper_debounce_timer.stop()
+        self.gamma_debounce_timer.stop()
         
         if self.serial_connection and self.serial_connection.is_open:
             try:
@@ -1192,6 +1662,32 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.serial_connection = None
         self.connected_port = None
         self.serial_buffer = ""  # Clear buffer
+        
+        # Reset executing trajectory flag
+        self.executing_trajectory = False
+        
+        # Reset all sliders and state to defaults
+        self._reset_sliders_to_defaults()
+        
+        # Reset gripper slider to default
+        gripper_def = self.params.get("gripperdef", 90)
+        gripper_min = self.params.get("grippermin", 0)
+        gripper_max = self.params.get("grippermax", 180)
+        default_percentage = int(((gripper_def - gripper_min) / (gripper_max - gripper_min)) * 100)
+        self.griperSlider.blockSignals(True)
+        self.griperSlider.setValue(default_percentage)
+        self.griperSlider.blockSignals(False)
+        self.last_gripper_percentage = default_percentage
+        
+        # Update 3D viewer to default state
+        if self.robot_viewer:
+            self.robot_viewer.set_theta(0)
+            self.robot_viewer.set_alpha(0)
+            self.robot_viewer.set_beta(0)
+            self.robot_viewer.set_mu(0)
+            gripper_mapped = (default_percentage / 100.0) * 85.0
+            self.robot_viewer.set_gripper(gripper_mapped)
+        
         self._update_com_button_states()
     
     def _on_quit_app(self):
@@ -1201,6 +1697,42 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Close the application
         QApplication.quit()
     
+    def _on_abort(self):
+        """Send abort command 's' to Arduino"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            command = "s\n"
+            self.serial_connection.write(command.encode())
+            print(f"Sent abort: {command.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_dev_send(self):
+        """Send content of devLineEdit to Arduino"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        # Get text from line edit
+        dev_text = self.devLineEdit.text().strip()
+        if not dev_text:
+            print("Dev line edit is empty")
+            return
+        
+        try:
+            # Add newline if not present
+            if not dev_text.endswith('\n'):
+                dev_text += '\n'
+            self.serial_connection.write(dev_text.encode())
+            print(f"Sent dev command: {dev_text.strip()}")
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
     def _update_com_button_states(self):
         """Update button enabled/disabled states based on connection status"""
         is_connected = bool(self.serial_connection and self.serial_connection.is_open)
@@ -1208,6 +1740,118 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.connectBtn.setEnabled(not is_connected)
         self.disconnectBtn.setEnabled(is_connected)
         self.refreshBtn.setEnabled(not is_connected)
+    
+    def _on_reset_left(self):
+        """Send reset left command and reset all sliders to default values"""
+        # Send serial command 'rl'
+        if self.serial_connection and self.serial_connection.is_open:
+            try:
+                command = "rl\n"
+                self.serial_connection.write(command.encode())
+                print(f"Sent: {command.strip()}")
+            except serial.SerialException as e:
+                print(f"Serial error: {e}")
+                self._on_disconnect_com()
+        
+        # Reset all sliders to default values
+        self._reset_sliders_to_defaults()
+    
+    def _on_reset_right(self):
+        """Send reset right command and reset all sliders to default values"""
+        # Send serial command 'rr'
+        if self.serial_connection and self.serial_connection.is_open:
+            try:
+                command = "rr\n"
+                self.serial_connection.write(command.encode())
+                print(f"Sent: {command.strip()}")
+            except serial.SerialException as e:
+                print(f"Serial error: {e}")
+                self._on_disconnect_com()
+        
+        # Reset all sliders to default values
+        self._reset_sliders_to_defaults()
+    
+    def _on_home_command(self):
+        """Send home command: it0a0b0 and reset all sliders to default values"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("Not connected to Arduino")
+            return
+        
+        try:
+            command = "it0a0b0\n"
+            self.serial_connection.write(command.encode())
+            print(f"Sent: {command.strip()}")
+            
+            # Reset all sliders to default values
+            self._reset_sliders_to_defaults()
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _reset_sliders_to_defaults(self):
+        """Reset all sliders to their default values from params.json"""
+        # Reset Cartesian sliders (X, Y, Z)
+        self.xSlider.blockSignals(True)
+        self.xSlider.setValue(self.params["xdef"])
+        self.xSlider.blockSignals(False)
+        self.xlineEdit.setText(str(self.params["xdef"]))
+        
+        self.ySlider.blockSignals(True)
+        self.ySlider.setValue(self.params["ydef"])
+        self.ySlider.blockSignals(False)
+        self.ylineEdit.setText(str(self.params["ydef"]))
+        
+        self.zSlider.blockSignals(True)
+        self.zSlider.setValue(self.params["zdef"])
+        self.zSlider.blockSignals(False)
+        self.zlineEdit.setText(str(self.params["zdef"]))
+        
+        # Reset ring sliders (theta, alpha, beta)
+        self.theta_slider.blockSignals(True)
+        self.theta_slider.setValue(0)
+        self.theta_slider.blockSignals(False)
+        
+        self.alpha_slider.blockSignals(True)
+        self.alpha_slider.setValue(0)
+        self.alpha_slider.blockSignals(False)
+        
+        self.beta_slider.blockSignals(True)
+        self.beta_slider.setValue(0)
+        self.beta_slider.blockSignals(False)
+        
+        # Reset mu slider and line edit
+        mu_default = self.params.get("mudef", 0)
+        self.muSlider.blockSignals(True)
+        self.muSlider.setValue(mu_default)
+        self.muSlider.blockSignals(False)
+        self.mulineEdit.setText(str(mu_default))
+        self.muLabel.setText(str(mu_default))
+        
+        # Reset gamma slider
+        gamma_default = self.params.get("gammadef", 0)
+        self.gamma_slider.blockSignals(True)
+        self.gamma_slider.setValue(gamma_default)
+        self.gamma_slider.blockSignals(False)
+        
+        # Update internal state variables
+        self.current_mu = mu_default
+        self.current_gamma = gamma_default
+        self.current_alpha = 0
+        self.current_x = self.params["xdef"]
+        self.current_y = self.params["ydef"]
+        self.current_z = self.params["zdef"]
+        
+        # Clear pending slider values to prevent old values from being sent
+        self.pending_theta = None
+        self.pending_alpha = None
+        self.pending_beta = None
+        self.pending_gamma = None
+        self.pending_gripper = None
+        
+        # Set control mode to mu
+        self.controlling_mu = True
+        
+        print("All sliders reset to default values")
     
     def _on_ring_slider_changed(self, slider_name, value):
         """Handle ring slider changes with debouncing"""
@@ -1238,6 +1882,144 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         try:
             self.serial_connection.write(command.encode())
             print(f"Sent: {command.strip()}")  # Debug output
+            
+            # Update current_alpha for mu/gamma calculations
+            self.current_alpha = alpha
+            
+            # Calculate and update XYZ position using direct kinematics
+            theta_rad = np.radians(theta)
+            alpha_rad = np.radians(alpha)
+            beta_rad = np.radians(beta)
+            
+            # Calculate gamma based on control mode
+            if self.controlling_mu:
+                gamma_rad = mu_to_gamma(np.radians(self.current_mu), alpha_rad)
+                # Update gamma slider since it depends on alpha
+                gamma_degrees = np.degrees(gamma_rad)
+                self.current_gamma = gamma_degrees
+                self.gamma_slider.blockSignals(True)
+                self.gamma_slider.setValue(gamma_degrees)
+                self.gamma_slider.blockSignals(False)
+            else:
+                gamma_rad = np.radians(self.current_gamma)
+            
+            position = direct_kinematics(theta_rad, alpha_rad, beta_rad, gamma_rad)
+            self.current_x = position[0]
+            self.current_y = position[1]
+            self.current_z = position[2]
+            
+            # Update XYZ labels
+            self.xLabel.setText(f"{self.current_x:.1f}")
+            self.yLabel.setText(f"{self.current_y:.1f}")
+            self.zLabel.setText(f"{self.current_z:.1f}")
+            
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_gripper_slider_changed(self, value):
+        """Handle gripper slider changes with debouncing"""
+        # Store the pending value
+        self.pending_gripper = value
+        
+        # Restart the debounce timer (single-shot)
+        self.gripper_debounce_timer.start()
+    
+    def _send_gripper_command(self):
+        """Send gripper command to Arduino after debounce period"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            return
+        
+        # Get current value from slider (use pending if set, otherwise current)
+        gripper_percentage = self.pending_gripper if self.pending_gripper is not None else self.griperSlider.value()
+        
+        # Format command: 'g<percentage>'
+        command = f"g{gripper_percentage}\n"
+        
+        try:
+            self.serial_connection.write(command.encode())
+            print(f"Sent: {command.strip()}")  # Debug output
+            
+            # Store last sent gripper percentage
+            self.last_gripper_percentage = gripper_percentage
+            
+            # Map gripper percentage from 0-100 to 0-85 for 3D viewer
+            gripper_mapped = (gripper_percentage / 100.0) * 85.0
+            
+            # Update 3D viewer with mapped gripper value
+            if self.robot_viewer:
+                self.robot_viewer.set_gripper(gripper_mapped)
+                
+        except serial.SerialException as e:
+            print(f"Serial error: {e}")
+            self._on_disconnect_com()
+    
+    def _on_gamma_slider_changed(self, value):
+        """Handle gamma slider changes with debouncing"""
+        # Store the pending value
+        self.pending_gamma = value
+        
+        # Restart the debounce timer (single-shot)
+        self.gamma_debounce_timer.start()
+    
+    def _send_gamma_command(self):
+        """Send gamma command to Arduino after debounce period"""
+        if not self.serial_connection or not self.serial_connection.is_open:
+            return
+        
+        # Get current value from slider (use pending if set, otherwise current)
+        gamma_value = self.pending_gamma if self.pending_gamma is not None else self.gamma_slider.value()
+        
+        # Convert to integer and format command: 'h<gamma>'
+        gamma_int = int(gamma_value)
+        command = f"h{gamma_int}\n"
+        
+        try:
+            self.serial_connection.write(command.encode())
+            print(f"Sent: {command.strip()}")  # Debug output
+            
+            # Set flag to indicate we're controlling gamma
+            self.controlling_mu = False
+            self.current_gamma = gamma_int
+            
+            # Calculate mu from gamma using current alpha
+            mu_value = gamma_to_mu(np.radians(gamma_int), np.radians(self.current_alpha))
+            mu_degrees = np.degrees(mu_value)
+            self.current_mu = mu_degrees
+            
+            # Update mu slider without triggering its change event
+            self.muSlider.blockSignals(True)
+            self.muSlider.setValue(int(mu_degrees))
+            self.muSlider.blockSignals(False)
+            
+            # Update mu line edit
+            self.mulineEdit.blockSignals(True)
+            self.mulineEdit.setText(str(int(mu_degrees)))
+            self.mulineEdit.blockSignals(False)
+            
+            # Update mu label
+            self.muLabel.setText(str(int(mu_degrees)))
+            
+            # Calculate and update XYZ position using direct kinematics
+            theta_rad = np.radians(self.theta_slider.value())
+            alpha_rad = np.radians(self.alpha_slider.value())
+            beta_rad = np.radians(self.beta_slider.value())
+            gamma_rad = np.radians(gamma_int)
+            
+            position = direct_kinematics(theta_rad, alpha_rad, beta_rad, gamma_rad)
+            self.current_x = position[0]
+            self.current_y = position[1]
+            self.current_z = position[2]
+            
+            # Update XYZ labels
+            self.xLabel.setText(f"{self.current_x:.1f}")
+            self.yLabel.setText(f"{self.current_y:.1f}")
+            self.zLabel.setText(f"{self.current_z:.1f}")
+            
+            # Update 3D viewer with calculated mu
+            if self.robot_viewer:
+                self.robot_viewer.set_mu(mu_degrees)
+                
         except serial.SerialException as e:
             print(f"Serial error: {e}")
             self._on_disconnect_com()
@@ -1264,6 +2046,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def _parse_feedback(self, line):
         """Parse Arduino feedback, update 3D viewer and cartesian labels"""
+        # Check for waypoint execution notification: "n<i>"
+        if line.startswith('n'):
+            try:
+                # Extract waypoint index
+                waypoint_index = int(line[1:])
+                self._on_waypoint_execution(waypoint_index)
+                return
+            except ValueError:
+                pass  # Not a valid waypoint notification, continue parsing
+        
         # Feedback format: "t<theta>a<alpha>b<beta>" or "d<date>t<theta>a<alpha>b<beta>"
         try:
             # Remove optional date prefix if present
@@ -1285,11 +2077,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 alpha = float(parts[1])
                 beta = float(parts[2])
                 
+                # Store current alpha for mu/gamma conversion
+                self.current_alpha = alpha
+                
                 # Convert degrees to radians for kinematics
                 theta_rad = np.radians(theta)
                 alpha_rad = np.radians(alpha)
                 beta_rad = np.radians(beta)
-                gamma_rad = 0.0  # Assume gamma = 0 for now (can be calculated if needed)
+                
+                # Calculate gamma based on control mode
+                if self.controlling_mu:
+                    # Convert mu to gamma for direct kinematics
+                    gamma_rad = mu_to_gamma(np.radians(self.current_mu), alpha_rad)
+                else:
+                    gamma_rad = np.radians(self.current_gamma)
                 
                 # Calculate cartesian position using direct kinematics
                 position = direct_kinematics(theta_rad, alpha_rad, beta_rad, gamma_rad)
@@ -1307,7 +2108,46 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.robot_viewer.set_theta(theta)
                     self.robot_viewer.set_alpha(alpha)
                     self.robot_viewer.set_beta(beta)
+                    
+                    # Update mu in 3D viewer based on control mode
+                    if self.controlling_mu:
+                        # Directly use current mu
+                        self.robot_viewer.set_mu(self.current_mu)
+                    else:
+                        # Calculate mu from gamma
+                        mu_value = gamma_to_mu(np.radians(self.current_gamma), alpha_rad)
+                        mu_degrees = np.degrees(mu_value)
+                        self.current_mu = mu_degrees
+                        self.robot_viewer.set_mu(mu_degrees)
                 
                 print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")  # Debug output
         except (ValueError, IndexError) as e:
             print(f"Parse error: {e} - Line: {line}")
+    
+    def _on_waypoint_execution(self, waypoint_index):
+        """Handle waypoint execution notification from Arduino"""
+        # Check if waypoint index is valid
+        if 0 <= waypoint_index < len(self.waypoints):
+            # Select the waypoint in the list widget
+            self.positionlistWidget.blockSignals(True)  # Prevent selection handler from firing
+            self.positionlistWidget.setCurrentRow(waypoint_index)
+            self.positionlistWidget.blockSignals(False)
+            
+            # Get the waypoint data
+            x, y, z, mu, gripper = self.waypoints[waypoint_index]
+            
+            # Update 3D viewer with mu and gripper values
+            if self.robot_viewer:
+                self.robot_viewer.set_mu(mu)
+                
+                # Map gripper percentage from 0-100 to 0-85 for 3D viewer
+                gripper_mapped = (gripper / 100.0) * 85.0
+                self.robot_viewer.set_gripper(gripper_mapped)
+            
+            # Update current mu and gripper values
+            self.current_mu = mu
+            self.last_gripper_percentage = gripper
+            
+            print(f"Executing waypoint {waypoint_index}: mu={mu}°, gripper={gripper}%")
+        else:
+            print(f"Invalid waypoint index received: {waypoint_index}")

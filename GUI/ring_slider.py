@@ -13,6 +13,8 @@ class RingSlider(QWidget):
         self.max_angle = max_angle
         self.min_value = min_value
         self.max_value = max_value
+        self.prohibited_start = -1  # Start angle of prohibited zone (-1 means disabled)
+        self.prohibited_end = -1    # End angle of prohibited zone (-1 means disabled)
         self._value = min_value if value is None else value
         self.setMinimumSize(80, 80)
         self._dragging = False
@@ -85,6 +87,13 @@ class RingSlider(QWidget):
         angle_span = self.angle_for_value(self._value) - self.min_angle
         painter.drawArc(ring_rect, int(self.min_angle*16), int(angle_span*16))
 
+        # Draw prohibited zone in red ON TOP (only if enabled)
+        if self.prohibited_start >= 0 and self.prohibited_end >= 0:
+            pen.setColor(QColor(220, 50, 50))  # Red color for prohibited zone
+            painter.setPen(pen)
+            prohibited_span = self.prohibited_end - self.prohibited_start
+            painter.drawArc(ring_rect, int(self.prohibited_start*16), int(prohibited_span*16))
+
         # Draw knob
         knob_angle = math.radians(self.angle_for_value(self._value))
         knob_x = center.x() + radius * math.cos(knob_angle)
@@ -129,6 +138,13 @@ class RingSlider(QWidget):
         angle = math.degrees(math.atan2(dy, dx))
         if angle < 0:
             angle += 360
+        
+        # Check if angle is in prohibited zone (only if enabled)
+        if self.prohibited_start >= 0 and self.prohibited_end >= 0:
+            if self.prohibited_start <= angle <= self.prohibited_end:
+                # Don't update value if in prohibited zone
+                return
+        
         # Clamp angle to slider range
         if self.min_angle <= angle <= self.max_angle:
             value = self.value_for_angle(angle)
@@ -144,6 +160,14 @@ class RingSlider(QWidget):
             current_angle = self.angle_for_value(self._value)
             new_angle = current_angle + angle_step * num_steps
             new_angle = max(self.min_angle, min(self.max_angle, new_angle))
+            
+            # Check if new angle would be in prohibited zone (only if enabled)
+            if self.prohibited_start >= 0 and self.prohibited_end >= 0:
+                if self.prohibited_start <= new_angle <= self.prohibited_end:
+                    # Don't change value if it would enter prohibited zone
+                    event.accept()
+                    return
+            
             new_value = self.value_for_angle(new_angle)
             self.setValue(new_value)
             event.accept()
