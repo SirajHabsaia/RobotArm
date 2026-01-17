@@ -90,7 +90,7 @@ void readSerial() {
                 }
                 length_line_JS = sqrt(length_line_JS);
 
-                trajectory_time = length_line_JS / 50.0;
+                trajectory_time = length_line_JS / 5.0;
 
                 direct_kinematics(current_angle[0], current_angle[1], current_angle[2]);
                 
@@ -122,7 +122,7 @@ void readSerial() {
                 center_z = center_z_str.toFloat();
 
                 perimeter = 2*PI*radius;
-                trajectory_time = perimeter / 150.0;
+                trajectory_time = perimeter / 20.0;
 
                 line_goal[0] = center_x + radius;
                 line_goal[1] = 0.0;
@@ -135,7 +135,7 @@ void readSerial() {
                     length_line_JS += (calculated_inverse[j] - current_angle[j]) * (calculated_inverse[j] - current_angle[j]);
                 }
                 length_line_JS = sqrt(length_line_JS);
-                circle_line_time = length_line_JS / 50.0;
+                circle_line_time = length_line_JS / 10.0;
 
                 direct_kinematics(current_angle[0], current_angle[1], current_angle[2]);
 
@@ -298,9 +298,8 @@ void readSerial() {
             executing_list = true;
             waypoint_index = 0;
             done_waypoint = true;
-            Serial.print("Loaded ");
-            Serial.print(waypoint_count);
-            Serial.println(" waypoints. Starting execution.");
+            Serial.print("n");
+            // Serial.println(waypoint_index); // 0
         } else if (c == 'w') { // receive planned waypoints
             // Format: wn<count>d<time_us>,t<theta>a<alpha>b<beta>,t<theta>a<alpha>b<beta>,...
             // Read count and time (up to first comma)

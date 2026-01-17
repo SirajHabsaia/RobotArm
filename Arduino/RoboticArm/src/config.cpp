@@ -6,7 +6,7 @@
 uint8_t CLK[N] = {8, 2, 5};
 uint8_t DIR[N] = {9, 3, 6};
 uint8_t LS[N] = {11, 13 , 12}; bool inv_LS[N] = {false, true, true};
-float RESOLUTION[N] = {8.f*400.f*4.f, 8.f*200.f*54.5f, 8.f*200.f*54.5f};
+float RESOLUTION[N] = {8.f*400.f*4.f, 8.f*200.f*54.5f*1.011f, 8.f*200.f*54.5f*0.978f};
 float max_speed[N] = {30., 15., 15.};
 float reset_speed[N] = {15., 5., 5.};
 float acceleration[N] = {50., 20., 20.};
@@ -15,7 +15,7 @@ bool inv_dir[N] = {false, true, false};
 float L1 = 250.0;
 float L2 = 200.0;
 float L3 = 180.0;
-float L3z = 30.0;
+float L3z = 33.0;
 
 // ===========================
 // DXL CONFIGURATION
@@ -40,7 +40,7 @@ int current_step[N] = {0, 0, 0};
 float current_gamma = 1000.0;
 float goal_mu = 0.0;
 bool update_gripper = false;
-float gamma_diff_threshold = 1.5;
+float gamma_diff_threshold = 1.0;
 
 // ===========================
 // HOME VARIABLES

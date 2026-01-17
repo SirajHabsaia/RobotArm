@@ -1,5 +1,5 @@
 from Designer.ui_gui import Ui_MainWindow
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog, QAbstractItemView
 from PySide6.QtCore import Qt, QPoint, QRect, QUrl, QTimer
 from PySide6.QtGui import QDesktopServices
 from home import AspectRatioLabel
@@ -1020,6 +1020,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.muLineEditProgram.setEnabled(True)
         self.gripperSliderProgram.setEnabled(True)
         self.gripperLineEditProgram.setEnabled(True)
+        # Enable list widget for user interaction in Record mode
+        self.positionlistWidget.setEnabled(True)
         # Clear all waypoints when switching to Record mode
         self._clear_all_waypoints()
         # Clear file label
@@ -1038,6 +1040,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.muLineEditProgram.setEnabled(False)
         self.gripperSliderProgram.setEnabled(False)
         self.gripperLineEditProgram.setEnabled(False)
+        # Disable list widget to prevent user selection (programmatic selection still works)
+        self.positionlistWidget.setEnabled(False)
     
     def _on_start_recording(self):
         """Start or resume recording waypoints"""
@@ -2042,6 +2046,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def _parse_feedback(self, line):
         """Parse Arduino feedback, update 3D viewer and cartesian labels"""
+        # Check for waypoint execution notification: "n<i>"
+        if line.startswith('n'):
+            try:
+                # Extract waypoint index
+                waypoint_index = int(line[1:])
+                self._on_waypoint_execution(waypoint_index)
+                return
+            except ValueError:
+                pass  # Not a valid waypoint notification, continue parsing
+        
         # Feedback format: "t<theta>a<alpha>b<beta>" or "d<date>t<theta>a<alpha>b<beta>"
         try:
             # Remove optional date prefix if present
@@ -2109,3 +2123,31 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")  # Debug output
         except (ValueError, IndexError) as e:
             print(f"Parse error: {e} - Line: {line}")
+    
+    def _on_waypoint_execution(self, waypoint_index):
+        """Handle waypoint execution notification from Arduino"""
+        # Check if waypoint index is valid
+        if 0 <= waypoint_index < len(self.waypoints):
+            # Select the waypoint in the list widget
+            self.positionlistWidget.blockSignals(True)  # Prevent selection handler from firing
+            self.positionlistWidget.setCurrentRow(waypoint_index)
+            self.positionlistWidget.blockSignals(False)
+            
+            # Get the waypoint data
+            x, y, z, mu, gripper = self.waypoints[waypoint_index]
+            
+            # Update 3D viewer with mu and gripper values
+            if self.robot_viewer:
+                self.robot_viewer.set_mu(mu)
+                
+                # Map gripper percentage from 0-100 to 0-85 for 3D viewer
+                gripper_mapped = (gripper / 100.0) * 85.0
+                self.robot_viewer.set_gripper(gripper_mapped)
+            
+            # Update current mu and gripper values
+            self.current_mu = mu
+            self.last_gripper_percentage = gripper
+            
+            print(f"Executing waypoint {waypoint_index}: mu={mu}°, gripper={gripper}%")
+        else:
+            print(f"Invalid waypoint index received: {waypoint_index}")

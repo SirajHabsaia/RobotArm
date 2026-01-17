@@ -160,7 +160,7 @@ void execute_waypoint_list() {
     
     delay(100);
     move_gripper(waypoint_buffer[waypoint_index].coord[4]);
-    delay(100);
+    delay(600);
     goal_mu = waypoint_buffer[waypoint_index].coord[3];
     update_gripper = true;
 
@@ -176,6 +176,9 @@ void execute_waypoint_list() {
     waypoint_index++;
     done_waypoint = false;
     begin_interpolate();
+    //send n<waypoint_index> to indicate progress
+    Serial.print("n");
+    Serial.println(waypoint_index-1);
 }
 
 void planned_trajectory(float t) {

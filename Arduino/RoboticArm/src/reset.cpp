@@ -24,20 +24,21 @@ void begin_reset() {
 
 void reset() {
     for (uint8_t j = 0; j < N; j++) {
-        if (!homed[j]) {
-            bool ls_state = digitalRead(LS[j]);
-            if (inv_LS[j]) {
-                ls_state = !ls_state;
-            }
-            if (!ls_state && (micros() - last_homing_step[j]) > homing_delay[j]) {
-                movestep(j, (!homed[1] && j==2) ? inv_dir_homing[j] : !inv_dir_homing[j]);
-                last_homing_step[j] = micros();
-            } else if (ls_state) {
-                homed[j] = true;
-                current_step[j] = 0;
-                current_angle[j] = 0.0;
-            }
-        }
+        if (homed[j]) continue;
+        bool ls_state = digitalRead(LS[j]);
+        if (inv_LS[j]) ls_state = !ls_state;
+        if (ls_state) homed[j] = true;
+    }
+
+    for (uint8_t j = 0; j < N; j++) {
+    if (micros() - last_homing_step[j] < homing_delay[j]) continue;
+
+    if ((j==0 && !homed[0])) movestep(0, !inv_dir_homing[0]);
+    if ((j==1 && !homed[1])) movestep(1, !inv_dir_homing[1]);
+    if ((j==2 && (homed[1] && !homed[2]))) movestep(2, !inv_dir_homing[2]);
+    if ((j==2 && (!homed[1] && homed[2]))) movestep(2, inv_dir_homing[2]);
+
+    last_homing_step[j] = micros();
     }
 
     homed_all = true;
