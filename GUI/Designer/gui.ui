@@ -1082,7 +1082,7 @@ QPushButton:hover{
           <string notr="true">background-color: transparent;</string>
          </property>
          <property name="currentIndex">
-          <number>2</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="page_home">
           <layout class="QGridLayout" name="gridLayout_2">

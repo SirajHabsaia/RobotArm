@@ -2470,7 +2470,7 @@ class Ui_MainWindow(object):
         self.execBtn.toggled.connect(self.fileLabel.setVisible)
         self.execBtn.toggled.connect(self.importBtn.setVisible)
 
-        self.stackedWidget.setCurrentIndex(2)
+        self.stackedWidget.setCurrentIndex(0)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
