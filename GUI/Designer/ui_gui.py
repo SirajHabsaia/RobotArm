@@ -2143,7 +2143,7 @@ class Ui_MainWindow(object):
 "	color: white;\n"
 "	border: 1px solid #cccccc;\n"
 "}")
-        self.chess_playBtn.setCheckable(True)
+        self.chess_playBtn.setCheckable(False)
         self.chess_playBtn.setAutoExclusive(True)
 
         self.horizontalLayout_26.addWidget(self.chess_playBtn)
@@ -2470,7 +2470,7 @@ class Ui_MainWindow(object):
         self.execBtn.toggled.connect(self.fileLabel.setVisible)
         self.execBtn.toggled.connect(self.importBtn.setVisible)
 
-        self.stackedWidget.setCurrentIndex(0)
+        self.stackedWidget.setCurrentIndex(4)
 
 
         QMetaObject.connectSlotsByName(MainWindow)

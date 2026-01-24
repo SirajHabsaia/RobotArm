@@ -151,25 +151,6 @@ void readSerial() {
             } else {
                 Serial.println("Invalid format. Use: r<radius>x<center_x>z<center_z>");
             }
-        } else if (c == 'd') { // Debug
-            //print current angle position
-            Serial.print("JS: [");
-            for (uint8_t j = 0; j < N; j++) {
-                Serial.print(current_angle[j], 2);
-                if (j < N - 1) Serial.print(", ");
-            }
-            Serial.println("]");
-
-            //print current cartesian position
-            direct_kinematics(current_angle[0], current_angle[1], current_angle[2]);
-            Serial.print("CS: [");
-            Serial.print(calculated_direct[0], 2);
-            Serial.print(", ");
-            Serial.print(calculated_direct[1], 2);
-            Serial.print(", ");
-            Serial.print(calculated_direct[2], 2);
-            Serial.println("]");
-
         } else if (c == 'r') { // Reset
             String line = Serial.readStringUntil('\n');
             line.trim();
@@ -248,14 +229,6 @@ void readSerial() {
                 Serial.println("]");
 
                 direct_kinematics(calculated_inverse[0], calculated_inverse[1], calculated_inverse[2]);
-
-                Serial.print("Direct Kinematics CS: [");
-                Serial.print(calculated_direct[0], 2);
-                Serial.print(", ");
-                Serial.print(calculated_direct[1], 2);
-                Serial.print(", ");
-                Serial.print(calculated_direct[2], 2);
-                Serial.println("]");
             } else {
                 Serial.println("Invalid format. Use: x<x>y<y>z<z>");
 
@@ -300,7 +273,6 @@ void readSerial() {
             waypoint_index = 0;
             done_waypoint = true;
             Serial.print("n");
-            // Serial.println(waypoint_index); // 0
         } else if (c == 'w') { // receive planned waypoints
             // Format: wn<count>d<time_us>,t<theta>a<alpha>b<beta>m<mu>g<gripper>,t<theta>a<alpha>b<beta>m<mu>g<gripper>,...
             // Read count and time (up to first comma)

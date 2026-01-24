@@ -9,11 +9,12 @@ __pycache__/
 *.pyd
 *.dll
 
-# Virtual environments
+# Virtual environments and stockfish
 .venv/
 venv/
 env/
 ENV/
+.stockfish/
 
 # Packaging
 *.egg-info/

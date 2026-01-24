@@ -125,21 +125,21 @@ class TrajectoryPlanner:
         waypoints = np.array(joint_waypoints)
         n_waypoints = len(waypoints)
         
-        # Map gripper actions to waypoint indices
-        gripper_waypoint_map = {}  # Maps waypoint index to gripper angle
+        # Create path for TOPPRA (4 joints: theta, alpha, beta, mu)
+        ss = np.linspace(0, 1, n_waypoints)
+        path = toppra.SplineInterpolator(ss, waypoints)
+        
+        # Map gripper actions to path parameter s
+        gripper_s_map = {}  # Maps path parameter s to gripper angle
         if gripper_actions:
             for t_action, gripper_angle in gripper_actions.items():
                 if t_action < 0 or t_action > T_duration:
                     print(f"Warning: Gripper action at t={t_action} outside trajectory duration")
                     continue
-                # Find closest waypoint to this time
-                idx = np.argmin(np.abs(t_waypoints - t_action))
-                gripper_waypoint_map[idx] = gripper_angle
-                print(f"Gripper action {gripper_angle}° mapped to waypoint {idx} (t={t_waypoints[idx]:.3f}s)")
-        
-        # Create path for TOPPRA (4 joints: theta, alpha, beta, mu)
-        ss = np.linspace(0, 1, n_waypoints)
-        path = toppra.SplineInterpolator(ss, waypoints)
+                # Convert time to path parameter s using linear interpolation
+                s_action = np.interp(t_action, t_waypoints, ss)
+                gripper_s_map[s_action] = gripper_angle
+                print(f"Gripper action {gripper_angle}° mapped to path parameter s={s_action:.4f} (t_orig={t_action:.3f}s)")
         
         # Setup constraints: tight for theta/alpha/beta, loose for mu
         MU_LIMIT = 1000.0  # Very high limit for mu (practically infinite)
@@ -175,21 +175,29 @@ class TrajectoryPlanner:
         t_dense = self.t_dense
         q_dense = self.q_dense
         
-        # Map gripper actions to dense trajectory
+        # Map gripper actions to dense trajectory using path parameter
         self.gripper_dense = np.full(len(t_dense), -1.0)
         gripper_optimized_times = {}
         gripper_dense = self.gripper_dense
         
-        if gripper_waypoint_map:
-            # For each waypoint with gripper action, find its position in dense trajectory
-            for waypoint_idx, gripper_angle in gripper_waypoint_map.items():
-                target_position = waypoints[waypoint_idx, :3]  # theta, alpha, beta only
-                # Find closest point in optimized trajectory
+        if gripper_s_map:
+            # For each gripper action, evaluate the path at its s parameter
+            # then find that exact configuration in the dense trajectory
+            for s_action, gripper_angle in gripper_s_map.items():
+                # Evaluate the path (spline) at this s parameter to get joint configuration
+                target_joints = path.eval(s_action)  # Returns [theta, alpha, beta, mu]
+                target_position = target_joints[:3]  # Use only theta, alpha, beta
+                
+                # Find this configuration in the optimized dense trajectory
                 distances = np.linalg.norm(q_dense[:, :3] - target_position, axis=1)
                 closest_idx = np.argmin(distances)
+                min_distance = distances[closest_idx]
+                
+                # Assign gripper action
                 gripper_dense[closest_idx] = gripper_angle
                 gripper_optimized_times[t_dense[closest_idx]] = gripper_angle
-                print(f"Gripper {gripper_angle}° assigned to optimized t={t_dense[closest_idx]:.3f}s")
+                
+                print(f"Gripper {gripper_angle}° at s={s_action:.4f} -> optimized t={t_dense[closest_idx]:.3f}s (distance={min_distance:.2f}deg)")
         
         # Generate output waypoints
         min_waypoint_dt = 0.02  # 20ms minimum spacing
@@ -361,6 +369,11 @@ if __name__ == "__main__":
     Rmax = 500
     mumin = -90.0
     mumax = -45.0
+
+    # piece box coordinates
+    xbox = 340
+    ybox = -250
+    zbox = 0
     
     # Trajectory primitives
     def quarter_ellipse(s, xi, yi, zi, xf, yf, zf, n=3):
@@ -373,21 +386,28 @@ if __name__ == "__main__":
     
     def semi_ellipse(s, xi, yi, zi, xf, yf, zm, n=3):
         s = s-1
-        # s = s**(1/n) if s>=0 else -(-s)**(1/n)
+        s = s**(1/n) if s>=0 else -(-s)**(1/n)
         return quarter_ellipse(s, (xi+xf)/2, (yi+yf)/2, zm, xf, yf, zi, n=n)
     
-    def move_piece(s, xi, yi, zi, xp, yp, zp, xg, yg, zm, n=3):
-        if s <= 1: return quarter_ellipse(s, xi, yi, zi, xp, yp, zp, n=n)
-        if s <= 3: return semi_ellipse(s-1, xp, yp, zp, xg, yg, zm, n=n)
-        return quarter_ellipse(1-(s-3), xi, yi, zi, xg, yg, zp, n=n)
+    def move_piece(s, xi, yi, zi, xp, yp, zp, xg, yg, zm, n=3, existing_piece=False):
+        if not existing_piece:
+            if s <= 1: return quarter_ellipse(s, xi, yi, zi, xp, yp, zp, n=n)
+            if s <= 3: return semi_ellipse(s-1, xp, yp, zp, xg, yg, zm, n=n)
+            return quarter_ellipse(1-(s-3), xi, yi, zi, xg, yg, zp, n=n)
+        else:
+            if s <= 1: return quarter_ellipse(s, xi, yi, zi, xg, yg, zp, n=n)
+            if s <= 2: return quarter_ellipse(1-(s-1), xbox, ybox, zbox, xg, yg, zp, n=n)
+            if s <= 3: return quarter_ellipse(s-2, xbox, ybox, zbox, xp, yp, zp, n=n)
+            if s <= 5: return semi_ellipse(s-3, xp, yp, zp, xg, yg, zm, n=n)
+            return quarter_ellipse(1-(s-5), xi, yi, zi, xg, yg, zp, n=n)
+        
+    T_initial = 4.0
+
     
     # Trajectory function
     def trajectory_func(t):
         return move_piece(t, xi=167, yi=0, zi=0, xp=203, yp=-132, zp=-132, 
-                         xg=470, yg=-132, zm=-50, n=3)
-        # return semi_ellipse(t, xi=250, yi=0, zi=-100, xf=300, yf=0, zm=-50, n=3)
-    
-    T_initial = 4.0
+                         xg=470, yg=-132, zm=-50, n=3, existing_piece=False)
     
     # IK/FK wrappers
     ik_func = lambda x, y, z, mu: [angle * 180.0/np.pi for angle in inverse_kinematics(x, y, z, mu=mu)]
@@ -407,10 +427,17 @@ if __name__ == "__main__":
         return mu_deg * np.pi / 180.0  # Return radians
     
     # Gripper actions
-    gripper_actions = {
+    gripper_actions_existing_piece = {
         0.0: 40.0,
-        1.0: 85.0,
-        3.0: 40.0
+        1.0: 90.0,
+        2.0: 40.0,
+        3.0: 90.0,
+        5.0: 40.0
+    }
+    gripper_actions_no_piece = {
+        0.0: 40.0,
+        1.0: 90.0,
+        3.0: 40.0,
     }
     
     # Create planner
@@ -422,7 +449,7 @@ if __name__ == "__main__":
         inverse_kinematics_func=ik_func,
         forward_kinematics_func=fk_func,
         mu_func=mu_func,
-        gripper_actions=gripper_actions,
+        gripper_actions=gripper_actions_no_piece,
         adaptive_sampling=False
     )
     
@@ -443,4 +470,4 @@ if __name__ == "__main__":
     print(output)
     
     # Show plots
-    # planner.plot_results(trajectory_func, T_initial)
+    planner.plot_results(trajectory_func, T_initial)

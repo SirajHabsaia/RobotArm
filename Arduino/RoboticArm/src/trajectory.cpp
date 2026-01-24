@@ -22,6 +22,7 @@ void follow_trajectory(void (*trajectory_func)(float)) {
         currently_interpolating = false;
         currently_drawing_circle = false;
         currently_drawing_line = false;
+        if (currently_following_planned) Serial.println("D");
         currently_following_planned = false;
         if (executing_list) done_waypoint = true;
         if (must_execute_planned) {
@@ -30,13 +31,6 @@ void follow_trajectory(void (*trajectory_func)(float)) {
             trajectory_time = total_planned_time / 1e6f;
             begin_trajectory();
         }
-
-        Serial.print("Completed at [");
-        for (uint8_t j = 0; j < N; j++) {
-            Serial.print(current_angle[j]);
-            if (j < N - 1) Serial.print(", ");
-        }
-        Serial.println("]");
 
         return;
 
@@ -109,20 +103,6 @@ void calculate_interpolation() {
         last_acceleration_angle[j] = initial_angle[j] + (sign_interpolation[j] ? 1 : -1) * (speed[j] * speed[j]) / (2.0 * a);
         last_cruising_angle[j] = last_acceleration_angle[j] + (sign_interpolation[j] ? 1 : -1) * speed[j] * t_c;
     }
-
-    Serial.print("\nMoving from [");
-    for (uint8_t j = 0; j < N; j++) {
-        Serial.print(initial_angle[j], 4);
-        if (j < N - 1) Serial.print(", ");
-    }
-    Serial.print("] to [");
-    for (uint8_t j = 0; j < N; j++) {
-        Serial.print(target_angle_interpolation[j], 4);
-        if (j < N - 1) Serial.print(", ");
-    }
-    Serial.print("] in ");
-    Serial.print(T, 4);
-    Serial.println(" seconds.");
 }
 
 void interpolation_trajectory(float t) {
@@ -153,7 +133,6 @@ void execute_waypoint_list() {
     if (waypoint_index >= waypoint_count) {
         executing_list = false;
         waypoint_index = 0;
-        Serial.println("Completed waypoint list execution.");
         return;
     }
     if (!done_waypoint || paused_execution) return;
@@ -176,7 +155,7 @@ void execute_waypoint_list() {
     waypoint_index++;
     done_waypoint = false;
     begin_interpolate();
-    //send n<waypoint_index> to indicate progress
+    //progress feedback
     Serial.print("n");
     Serial.println(waypoint_index-1);
 }
