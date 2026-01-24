@@ -8,7 +8,7 @@ from PIL import Image
 
 # ------------------ CONFIG ------------------
 IMG_SIZE = 100
-MODEL_FILE = "model_small.pth"  # assumes model is in the same folder
+MODEL_FILE = "model6.pth"  # assumes model is in the same folder
 CLASS_NAMES = ['black', 'empty', 'white']  # same order as training
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -18,25 +18,32 @@ class ChessCNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(3, 16, 3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(),
+
+            nn.Conv2d(16, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
             nn.MaxPool2d(2),
         )
+
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64 * 12 * 12, 128),
+            nn.Linear(64 * 12 * 12, 64),
             nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(128, len(CLASS_NAMES))
+            nn.Dropout(0.3),
+            nn.Linear(64, 3)
         )
 
     def forward(self, x):
-        x = self.features(x)
-        x = self.classifier(x)
-        return x
+        return self.classifier(self.features(x))
 
 # ------------------ FUNCTION FOR INFERENCE ------------------
 def predict_image(image_path, model_path=MODEL_FILE):

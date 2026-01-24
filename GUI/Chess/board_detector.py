@@ -31,7 +31,12 @@ from typing import Optional, Dict, Any, Tuple, List
 import time
 import os
 
-from config import get_aruco_detector, BoardAnalyzerConfig
+try:
+    # When imported as part of GUI package
+    from .config import get_aruco_detector, BoardAnalyzerConfig
+except ImportError:
+    # When run as standalone script from Chess folder
+    from config import get_aruco_detector, BoardAnalyzerConfig
 
 
 # ======================== CNN MODEL DEFINITION ========================
@@ -41,22 +46,32 @@ class ChessCNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 8, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(3, 16, 3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(8, 16, 3, padding=1), nn.ReLU(),
+
+            nn.Conv2d(16, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
             nn.MaxPool2d(2),
         )
+
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(16 * 25 * 25, 32),  # Adjust if your input size changes
+            nn.Linear(64 * 12 * 12, 64),
             nn.ReLU(),
-            nn.Linear(32, 3)
+            nn.Dropout(0.3),
+            nn.Linear(64, 3)
         )
 
     def forward(self, x):
-        x = self.features(x)
-        x = self.classifier(x)
-        return x
+        return self.classifier(self.features(x))
 
 
 # ======================== BOARD DETECTOR ========================
@@ -73,17 +88,24 @@ class BoardDetector:
     5. Return board state and display images
     """
     
-    def __init__(self, config: Optional[BoardAnalyzerConfig] = None):
+    def __init__(self, config: Optional[BoardAnalyzerConfig] = None, side: str = "white"):
         """
         Initialize the BoardDetector.
         
         Args:
             config: BoardAnalyzerConfig instance, or None to use defaults
+            side: Which side the user is playing from ('white' or 'black').
+                  If 'white', robot arm is on black's side (top).
+                  If 'black', robot arm is on white's side (bottom).
         """
         if config is None:
             config = BoardAnalyzerConfig()
         
         self.config = config
+        self.side = side.lower()  # Normalize to lowercase
+        
+        if self.side not in ["white", "black"]:
+            raise ValueError(f"side must be 'white' or 'black', got '{side}'")
         
         # Initialize ArUco detector
         self.detector = get_aruco_detector()
@@ -100,6 +122,10 @@ class BoardDetector:
         
         # Timing for video mode
         self.last_frame_time = time.time()
+        
+        # Hand detection cooldown tracking
+        self.cooldown_counter = 0  # Counts down from cooldown_frames to 0
+        self.hand_was_detected = False  # Track if hand was detected in previous frame
         
     def _init_model(self):
         """Initialize the CNN model for piece classification."""
@@ -291,6 +317,7 @@ class BoardDetector:
         
         Uses Canny edge detection on the stripe area and counts contours.
         Only analyzes the outer portion of the stripe (defined by hand_detection_stripe_usage).
+        Excludes the opponent's stripe segment where the robot arm will be.
         
         Returns:
             Tuple of (hand_detected, contour_image, contour_density) where:
@@ -324,6 +351,16 @@ class BoardDetector:
         mask = np.ones(edges.shape, dtype=np.uint8) * 255
         mask[excluded_offset:excluded_offset+excluded_size, excluded_offset:excluded_offset+excluded_size] = 0
         
+        # Exclude opponent's stripe segment (where robot arm will be)
+        # If user plays white, exclude top stripe (black's side / row 0)
+        # If user plays black, exclude bottom stripe (white's side / row 7)
+        if self.side == "white":
+            # Exclude top stripe
+            mask[0:excluded_offset, :] = 0
+        else:  # side == "black"
+            # Exclude bottom stripe
+            mask[full_size - excluded_offset:full_size, :] = 0
+        
         # Apply mask to edges
         stripe_edges = cv2.bitwise_and(edges, edges, mask=mask)
         
@@ -335,6 +372,16 @@ class BoardDetector:
         
         # Create visualization image (use full_cropped)
         contour_image = full_cropped.copy()
+        
+        # Draw the region where edge detection is being applied
+        # Create a semi-transparent overlay showing the active detection region
+        overlay = contour_image.copy()
+        # Draw the active region in blue
+        overlay[mask > 0] = [255, 100, 0]  # BGR: Orange/blue color for active region
+        # Blend with original image (30% overlay, 70% original)
+        cv2.addWeighted(overlay, 0.3, contour_image, 0.7, 0, contour_image)
+        
+        # Draw contours on top
         cv2.drawContours(contour_image, contours, -1, (0, 255, 0), 2)
         
         # Check if hand is detected
@@ -521,8 +568,12 @@ class BoardDetector:
         # Detect hand in stripe
         hand_detected, contour_image, contour_density = self._detect_hand_in_stripe(big_cropped, full_cropped)
         
-        # If hand detected, skip board analysis
+        # Handle cooldown logic
         if hand_detected:
+            # Hand is detected: reset cooldown counter
+            self.cooldown_counter = self.config.hand_detection_cooldown_frames
+            self.hand_was_detected = True
+            
             return {
                 'board_state': None,
                 'display_big_cropped': contour_image,
@@ -531,8 +582,23 @@ class BoardDetector:
                 'skipped': True,
                 'contour_density': contour_density
             }
+        else:
+            # No hand detected
+            if self.cooldown_counter > 0:
+                # Still in cooldown period: skip board analysis
+                self.cooldown_counter -= 1
+                
+                return {
+                    'board_state': None,
+                    'display_big_cropped': contour_image,
+                    'display_small_cropped': None,
+                    'hand_detected': False,
+                    'skipped': True,
+                    'contour_density': contour_density,
+                    'cooldown_remaining': self.cooldown_counter
+                }
         
-        # Analyze board
+        # No hand and no cooldown: analyze board
         analysis_result = self._analyze_board(small_cropped)
         
         return {

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt
 
-from inference2 import predict_image  # import the function from your inference.py
+from inference import predict_image
 
 class DragDropWidget(QWidget):
     def __init__(self):

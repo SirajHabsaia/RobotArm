@@ -121,31 +121,31 @@ class Ui_MainWindow(object):
 
         self.verticalLayout.addWidget(self.ProgramBtn1)
 
-        self.DrawBtn1 = QPushButton(self.icon_only_widget)
-        self.DrawBtn1.setObjectName(u"DrawBtn1")
-        self.DrawBtn1.setMinimumSize(QSize(40, 40))
-        self.DrawBtn1.setMaximumSize(QSize(100, 40))
-        icon3 = QIcon()
-        icon3.addFile(u":/images/sidebar/draw.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.DrawBtn1.setIcon(icon3)
-        self.DrawBtn1.setIconSize(QSize(30, 30))
-        self.DrawBtn1.setCheckable(True)
-        self.DrawBtn1.setAutoExclusive(True)
-
-        self.verticalLayout.addWidget(self.DrawBtn1)
-
         self.ChessBtn1 = QPushButton(self.icon_only_widget)
         self.ChessBtn1.setObjectName(u"ChessBtn1")
         self.ChessBtn1.setMinimumSize(QSize(40, 40))
         self.ChessBtn1.setMaximumSize(QSize(100, 40))
-        icon4 = QIcon()
-        icon4.addFile(u":/images/sidebar/chess.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
-        self.ChessBtn1.setIcon(icon4)
+        icon3 = QIcon()
+        icon3.addFile(u":/images/sidebar/chess.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.ChessBtn1.setIcon(icon3)
         self.ChessBtn1.setIconSize(QSize(30, 30))
         self.ChessBtn1.setCheckable(True)
         self.ChessBtn1.setAutoExclusive(True)
 
         self.verticalLayout.addWidget(self.ChessBtn1)
+
+        self.DrawBtn1 = QPushButton(self.icon_only_widget)
+        self.DrawBtn1.setObjectName(u"DrawBtn1")
+        self.DrawBtn1.setMinimumSize(QSize(40, 40))
+        self.DrawBtn1.setMaximumSize(QSize(100, 40))
+        icon4 = QIcon()
+        icon4.addFile(u":/images/sidebar/draw.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.DrawBtn1.setIcon(icon4)
+        self.DrawBtn1.setIconSize(QSize(30, 30))
+        self.DrawBtn1.setCheckable(True)
+        self.DrawBtn1.setAutoExclusive(True)
+
+        self.verticalLayout.addWidget(self.DrawBtn1)
 
         self.verticalSpacer = QSpacerItem(20, 64, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
@@ -267,29 +267,29 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_2.addWidget(self.ProgramBtn2)
 
-        self.DrawBtn2 = QPushButton(self.icon_name_widget)
-        self.DrawBtn2.setObjectName(u"DrawBtn2")
-        self.DrawBtn2.setMinimumSize(QSize(40, 40))
-        self.DrawBtn2.setMaximumSize(QSize(200, 40))
-        self.DrawBtn2.setFont(font1)
-        self.DrawBtn2.setIcon(icon3)
-        self.DrawBtn2.setIconSize(QSize(30, 30))
-        self.DrawBtn2.setCheckable(True)
-        self.DrawBtn2.setAutoExclusive(True)
-
-        self.verticalLayout_2.addWidget(self.DrawBtn2)
-
         self.ChessBtn2 = QPushButton(self.icon_name_widget)
         self.ChessBtn2.setObjectName(u"ChessBtn2")
         self.ChessBtn2.setMinimumSize(QSize(40, 40))
         self.ChessBtn2.setMaximumSize(QSize(200, 40))
         self.ChessBtn2.setFont(font1)
-        self.ChessBtn2.setIcon(icon4)
+        self.ChessBtn2.setIcon(icon3)
         self.ChessBtn2.setIconSize(QSize(30, 30))
         self.ChessBtn2.setCheckable(True)
         self.ChessBtn2.setAutoExclusive(True)
 
         self.verticalLayout_2.addWidget(self.ChessBtn2)
+
+        self.DrawBtn2 = QPushButton(self.icon_name_widget)
+        self.DrawBtn2.setObjectName(u"DrawBtn2")
+        self.DrawBtn2.setMinimumSize(QSize(40, 40))
+        self.DrawBtn2.setMaximumSize(QSize(200, 40))
+        self.DrawBtn2.setFont(font1)
+        self.DrawBtn2.setIcon(icon4)
+        self.DrawBtn2.setIconSize(QSize(30, 30))
+        self.DrawBtn2.setCheckable(True)
+        self.DrawBtn2.setAutoExclusive(True)
+
+        self.verticalLayout_2.addWidget(self.DrawBtn2)
 
         self.verticalSpacer_2 = QSpacerItem(20, 64, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
@@ -318,12 +318,15 @@ class Ui_MainWindow(object):
         self.title_widget.setObjectName(u"title_widget")
         self.title_widget.setMinimumSize(QSize(0, 32))
         self.title_widget.setMaximumSize(QSize(16777215, 32))
-        self.title_widget.setStyleSheet(u"QPushButton{\n"
+        self.title_widget.setStyleSheet(u"QWidget{\n"
+"	background-color: rgb(35, 35, 35);\n"
+"}\n"
+"QPushButton{\n"
 "	border: none;\n"
 "}\n"
 "QPushButton:hover{\n"
 "	\n"
-"	background-color: rgb(85, 85, 85);\n"
+"	background-color: rgb(80, 80, 80);\n"
 "}")
         self.horizontalLayout_4 = QHBoxLayout(self.title_widget)
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
@@ -2048,14 +2051,125 @@ class Ui_MainWindow(object):
         self.stackedWidget.addWidget(self.page_draw)
         self.page_chess = QWidget()
         self.page_chess.setObjectName(u"page_chess")
-        self.chessWidget_2 = QWidget(self.page_chess)
-        self.chessWidget_2.setObjectName(u"chessWidget_2")
-        self.chessWidget_2.setGeometry(QRect(470, 30, 300, 300))
-        self.chessWidget_2.setMinimumSize(QSize(300, 300))
-        self.chessWidget_2.setStyleSheet(u"background-color: rgb(21, 21, 21);")
-        self.groupBox = QGroupBox(self.page_chess)
+        self.horizontalLayout_28 = QHBoxLayout(self.page_chess)
+        self.horizontalLayout_28.setObjectName(u"horizontalLayout_28")
+        self.chessLeftWidget = QWidget(self.page_chess)
+        self.chessLeftWidget.setObjectName(u"chessLeftWidget")
+        self.chessLeftWidget.setMinimumSize(QSize(420, 0))
+        self.chessLeftWidget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self.chessLeftWidget.setStyleSheet(u"")
+        self.verticalLayout_17 = QVBoxLayout(self.chessLeftWidget)
+        self.verticalLayout_17.setSpacing(20)
+        self.verticalLayout_17.setObjectName(u"verticalLayout_17")
+        self.chessLabel = QLabel(self.chessLeftWidget)
+        self.chessLabel.setObjectName(u"chessLabel")
+        self.chessLabel.setMinimumSize(QSize(0, 40))
+        self.chessLabel.setMaximumSize(QSize(16777215, 40))
+        font12 = QFont()
+        font12.setPointSize(22)
+        self.chessLabel.setFont(font12)
+        self.chessLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.verticalLayout_17.addWidget(self.chessLabel)
+
+        self.chessWidget = QWidget(self.chessLeftWidget)
+        self.chessWidget.setObjectName(u"chessWidget")
+        self.chessWidget.setMinimumSize(QSize(400, 400))
+        self.chessWidget.setMaximumSize(QSize(10000, 10000))
+        font13 = QFont()
+        font13.setUnderline(False)
+        self.chessWidget.setFont(font13)
+        self.chessWidget.setStyleSheet(u"")
+
+        self.verticalLayout_17.addWidget(self.chessWidget, 0, Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+
+        self.horizontalLayout_26 = QHBoxLayout()
+        self.horizontalLayout_26.setSpacing(20)
+        self.horizontalLayout_26.setObjectName(u"horizontalLayout_26")
+        self.horizontalSpacer_18 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_26.addItem(self.horizontalSpacer_18)
+
+        self.chess_initializeBtn = QPushButton(self.chessLeftWidget)
+        self.chess_initializeBtn.setObjectName(u"chess_initializeBtn")
+        self.chess_initializeBtn.setMinimumSize(QSize(100, 32))
+        self.chess_initializeBtn.setMaximumSize(QSize(100, 16777215))
+        font14 = QFont()
+        font14.setPointSize(16)
+        self.chess_initializeBtn.setFont(font14)
+        self.chess_initializeBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_initializeBtn.setCheckable(False)
+        self.chess_initializeBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_26.addWidget(self.chess_initializeBtn)
+
+        self.chess_playBtn = QPushButton(self.chessLeftWidget)
+        self.chess_playBtn.setObjectName(u"chess_playBtn")
+        self.chess_playBtn.setMinimumSize(QSize(100, 32))
+        self.chess_playBtn.setMaximumSize(QSize(100, 16777215))
+        self.chess_playBtn.setFont(font14)
+        self.chess_playBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_playBtn.setCheckable(True)
+        self.chess_playBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_26.addWidget(self.chess_playBtn)
+
+        self.horizontalSpacer_25 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_26.addItem(self.horizontalSpacer_25)
+
+
+        self.verticalLayout_17.addLayout(self.horizontalLayout_26)
+
+
+        self.horizontalLayout_28.addWidget(self.chessLeftWidget)
+
+        self.chessRightWidget = QWidget(self.page_chess)
+        self.chessRightWidget.setObjectName(u"chessRightWidget")
+        self.chessRightWidget.setMinimumSize(QSize(320, 0))
+        self.chessRightWidget.setStyleSheet(u"")
+        self.camWidget = QWidget(self.chessRightWidget)
+        self.camWidget.setObjectName(u"camWidget")
+        self.camWidget.setGeometry(QRect(10, 0, 300, 300))
+        self.camWidget.setMinimumSize(QSize(300, 300))
+        self.camWidget.setStyleSheet(u"background-color: rgb(21, 21, 21);")
+        self.groupBox = QGroupBox(self.chessRightWidget)
         self.groupBox.setObjectName(u"groupBox")
-        self.groupBox.setGeometry(QRect(490, 350, 261, 201))
+        self.groupBox.setGeometry(QRect(10, 310, 301, 221))
         self.groupBox.setStyleSheet(u"QGroupBox {\n"
 "    font-family: \"Segoe UI\";\n"
 "    font-size: 18px;\n"
@@ -2065,28 +2179,264 @@ class Ui_MainWindow(object):
 "	subcontrol-position: top center;\n"
 "}\n"
 "")
-        self.widget = QWidget(self.page_chess)
-        self.widget.setObjectName(u"widget")
-        self.widget.setGeometry(QRect(20, 20, 420, 531))
-        self.widget.setMinimumSize(QSize(420, 0))
-        self.widget.setStyleSheet(u"background-color: rgb(47, 47, 47);")
-        self.verticalLayout_17 = QVBoxLayout(self.widget)
-        self.verticalLayout_17.setObjectName(u"verticalLayout_17")
-        self.label_5 = QLabel(self.widget)
-        self.label_5.setObjectName(u"label_5")
-        font12 = QFont()
-        font12.setPointSize(22)
-        self.label_5.setFont(font12)
-        self.label_5.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.verticalLayout_19 = QVBoxLayout(self.groupBox)
+        self.verticalLayout_19.setObjectName(u"verticalLayout_19")
+        self.chessInputWidget = QWidget(self.groupBox)
+        self.chessInputWidget.setObjectName(u"chessInputWidget")
+        self.horizontalLayout_29 = QHBoxLayout(self.chessInputWidget)
+        self.horizontalLayout_29.setSpacing(10)
+        self.horizontalLayout_29.setObjectName(u"horizontalLayout_29")
+        self.chessLabel_2 = QLabel(self.chessInputWidget)
+        self.chessLabel_2.setObjectName(u"chessLabel_2")
+        self.chessLabel_2.setMaximumSize(QSize(50, 16777215))
+        font15 = QFont()
+        font15.setPointSize(12)
+        self.chessLabel_2.setFont(font15)
+        self.chessLabel_2.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout_17.addWidget(self.label_5)
+        self.horizontalLayout_29.addWidget(self.chessLabel_2)
 
-        self.chessWidget = QWidget(self.widget)
-        self.chessWidget.setObjectName(u"chessWidget")
-        self.chessWidget.setMinimumSize(QSize(400, 400))
-        self.chessWidget.setStyleSheet(u"background-color: rgb(21, 21, 21);")
+        self.horizontalSpacer_28 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.verticalLayout_17.addWidget(self.chessWidget)
+        self.horizontalLayout_29.addItem(self.horizontalSpacer_28)
+
+        self.chess_camidBtn = QPushButton(self.chessInputWidget)
+        self.chess_camidBtn.setObjectName(u"chess_camidBtn")
+        self.chess_camidBtn.setMinimumSize(QSize(64, 24))
+        self.chess_camidBtn.setMaximumSize(QSize(64, 24))
+        self.chess_camidBtn.setFont(font15)
+        self.chess_camidBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_camidBtn.setCheckable(True)
+        self.chess_camidBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_29.addWidget(self.chess_camidBtn)
+
+        self.chess_camipBtn = QPushButton(self.chessInputWidget)
+        self.chess_camipBtn.setObjectName(u"chess_camipBtn")
+        self.chess_camipBtn.setMinimumSize(QSize(64, 24))
+        self.chess_camipBtn.setMaximumSize(QSize(64, 24))
+        self.chess_camipBtn.setFont(font15)
+        self.chess_camipBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_camipBtn.setCheckable(True)
+        self.chess_camipBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_29.addWidget(self.chess_camipBtn)
+
+        self.chess_videoBtn = QPushButton(self.chessInputWidget)
+        self.chess_videoBtn.setObjectName(u"chess_videoBtn")
+        self.chess_videoBtn.setMinimumSize(QSize(64, 24))
+        self.chess_videoBtn.setMaximumSize(QSize(64, 24))
+        self.chess_videoBtn.setFont(font15)
+        self.chess_videoBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_videoBtn.setCheckable(True)
+        self.chess_videoBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_29.addWidget(self.chess_videoBtn)
+
+
+        self.verticalLayout_19.addWidget(self.chessInputWidget)
+
+        self.chessInfoWidget = QWidget(self.groupBox)
+        self.chessInfoWidget.setObjectName(u"chessInfoWidget")
+        self.horizontalLayout_30 = QHBoxLayout(self.chessInfoWidget)
+        self.horizontalLayout_30.setObjectName(u"horizontalLayout_30")
+        self.chess_modeLabel = QLabel(self.chessInfoWidget)
+        self.chess_modeLabel.setObjectName(u"chess_modeLabel")
+        self.chess_modeLabel.setMaximumSize(QSize(80, 16777215))
+        self.chess_modeLabel.setFont(font15)
+        self.chess_modeLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_30.addWidget(self.chess_modeLabel)
+
+        self.horizontalSpacer_29 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_30.addItem(self.horizontalSpacer_29)
+
+        self.chess_infoLineEdit = QLineEdit(self.chessInfoWidget)
+        self.chess_infoLineEdit.setObjectName(u"chess_infoLineEdit")
+        self.chess_infoLineEdit.setMinimumSize(QSize(160, 26))
+
+        self.horizontalLayout_30.addWidget(self.chess_infoLineEdit)
+
+        self.horizontalSpacer_34 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_30.addItem(self.horizontalSpacer_34)
+
+
+        self.verticalLayout_19.addWidget(self.chessInfoWidget)
+
+        self.chessModeWidget = QWidget(self.groupBox)
+        self.chessModeWidget.setObjectName(u"chessModeWidget")
+        self.horizontalLayout_31 = QHBoxLayout(self.chessModeWidget)
+        self.horizontalLayout_31.setObjectName(u"horizontalLayout_31")
+        self.chessLabel_5 = QLabel(self.chessModeWidget)
+        self.chessLabel_5.setObjectName(u"chessLabel_5")
+        self.chessLabel_5.setMaximumSize(QSize(80, 16777215))
+        self.chessLabel_5.setFont(font15)
+        self.chessLabel_5.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_31.addWidget(self.chessLabel_5)
+
+        self.horizontalSpacer_30 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_31.addItem(self.horizontalSpacer_30)
+
+        self.chess_mode_blackBtn = QPushButton(self.chessModeWidget)
+        self.chess_mode_blackBtn.setObjectName(u"chess_mode_blackBtn")
+        self.chess_mode_blackBtn.setMinimumSize(QSize(64, 24))
+        self.chess_mode_blackBtn.setMaximumSize(QSize(64, 24))
+        self.chess_mode_blackBtn.setFont(font15)
+        self.chess_mode_blackBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_mode_blackBtn.setCheckable(True)
+        self.chess_mode_blackBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_31.addWidget(self.chess_mode_blackBtn)
+
+        self.horizontalSpacer_32 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_31.addItem(self.horizontalSpacer_32)
+
+        self.chess_mode_whiteBtn = QPushButton(self.chessModeWidget)
+        self.chess_mode_whiteBtn.setObjectName(u"chess_mode_whiteBtn")
+        self.chess_mode_whiteBtn.setMinimumSize(QSize(64, 24))
+        self.chess_mode_whiteBtn.setMaximumSize(QSize(64, 24))
+        self.chess_mode_whiteBtn.setFont(font15)
+        self.chess_mode_whiteBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_mode_whiteBtn.setCheckable(True)
+        self.chess_mode_whiteBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_31.addWidget(self.chess_mode_whiteBtn)
+
+        self.horizontalSpacer_33 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_31.addItem(self.horizontalSpacer_33)
+
+
+        self.verticalLayout_19.addWidget(self.chessModeWidget)
+
+        self.chessThresholdWidget = QWidget(self.groupBox)
+        self.chessThresholdWidget.setObjectName(u"chessThresholdWidget")
+        self.horizontalLayout_32 = QHBoxLayout(self.chessThresholdWidget)
+        self.horizontalLayout_32.setSpacing(10)
+        self.horizontalLayout_32.setObjectName(u"horizontalLayout_32")
+        self.chessLabel_6 = QLabel(self.chessThresholdWidget)
+        self.chessLabel_6.setObjectName(u"chessLabel_6")
+        self.chessLabel_6.setMinimumSize(QSize(130, 0))
+        self.chessLabel_6.setMaximumSize(QSize(130, 16777215))
+        self.chessLabel_6.setFont(font15)
+        self.chessLabel_6.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_32.addWidget(self.chessLabel_6)
+
+        self.horizontalSpacer_31 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_32.addItem(self.horizontalSpacer_31)
+
+        self.chess_thresholdLineEdit = QLineEdit(self.chessThresholdWidget)
+        self.chess_thresholdLineEdit.setObjectName(u"chess_thresholdLineEdit")
+        self.chess_thresholdLineEdit.setMinimumSize(QSize(100, 26))
+        self.chess_thresholdLineEdit.setMaximumSize(QSize(100, 16777215))
+
+        self.horizontalLayout_32.addWidget(self.chess_thresholdLineEdit)
+
+        self.horizontalSpacer_26 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_32.addItem(self.horizontalSpacer_26)
+
+        self.horizontalSpacer_35 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_32.addItem(self.horizontalSpacer_35)
+
+
+        self.verticalLayout_19.addWidget(self.chessThresholdWidget)
+
+
+        self.horizontalLayout_28.addWidget(self.chessRightWidget)
 
         self.stackedWidget.addWidget(self.page_chess)
 
@@ -2132,16 +2482,16 @@ class Ui_MainWindow(object):
         self.HomeBtn1.setText("")
         self.ManipBtn1.setText("")
         self.ProgramBtn1.setText("")
-        self.DrawBtn1.setText("")
         self.ChessBtn1.setText("")
+        self.DrawBtn1.setText("")
         self.GithubBtn1.setText("")
         self.label_2.setText("")
         self.label_3.setText(QCoreApplication.translate("MainWindow", u"Menu", None))
         self.HomeBtn2.setText(QCoreApplication.translate("MainWindow", u"    Home", None))
         self.ManipBtn2.setText(QCoreApplication.translate("MainWindow", u"    Manip", None))
         self.ProgramBtn2.setText(QCoreApplication.translate("MainWindow", u"  Program", None))
-        self.DrawBtn2.setText(QCoreApplication.translate("MainWindow", u"    Draw", None))
         self.ChessBtn2.setText(QCoreApplication.translate("MainWindow", u"  Chess AI", None))
+        self.DrawBtn2.setText(QCoreApplication.translate("MainWindow", u"    Draw", None))
         self.GithubBtn2.setText(QCoreApplication.translate("MainWindow", u"  Github", None))
         self.SidebarBtn.setText("")
         self.resetLeftBtn.setText("")
@@ -2213,7 +2563,20 @@ class Ui_MainWindow(object):
         self.fileLabel.setText(QCoreApplication.translate("MainWindow", u"No file selected", None))
         self.label_17.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Position List  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"Draw", None))
+        self.chessLabel.setText(QCoreApplication.translate("MainWindow", u"Not yet connected", None))
+        self.chess_initializeBtn.setText(QCoreApplication.translate("MainWindow", u"Initialize", None))
+        self.chess_playBtn.setText(QCoreApplication.translate("MainWindow", u"Play", None))
         self.groupBox.setTitle(QCoreApplication.translate("MainWindow", u"Chess Settings", None))
-        self.label_5.setText(QCoreApplication.translate("MainWindow", u"Not yet connected", None))
+        self.chessLabel_2.setText(QCoreApplication.translate("MainWindow", u"Input:", None))
+        self.chess_camidBtn.setText(QCoreApplication.translate("MainWindow", u"Cam ID", None))
+        self.chess_camipBtn.setText(QCoreApplication.translate("MainWindow", u"Cam IP", None))
+        self.chess_videoBtn.setText(QCoreApplication.translate("MainWindow", u"Video", None))
+        self.chess_modeLabel.setText(QCoreApplication.translate("MainWindow", u"Camera IP :", None))
+        self.chess_infoLineEdit.setText(QCoreApplication.translate("MainWindow", u"0", None))
+        self.chessLabel_5.setText(QCoreApplication.translate("MainWindow", u"Your side :", None))
+        self.chess_mode_blackBtn.setText(QCoreApplication.translate("MainWindow", u"Black", None))
+        self.chess_mode_whiteBtn.setText(QCoreApplication.translate("MainWindow", u"White", None))
+        self.chessLabel_6.setText(QCoreApplication.translate("MainWindow", u"Hand threshold :", None))
+        self.chess_thresholdLineEdit.setText(QCoreApplication.translate("MainWindow", u"100", None))
     # retranslateUi
 

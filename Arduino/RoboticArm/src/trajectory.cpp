@@ -158,9 +158,9 @@ void execute_waypoint_list() {
     }
     if (!done_waypoint || paused_execution) return;
     
-    delay(100);
+    // delay(100);
     move_gripper(waypoint_buffer[waypoint_index].coord[4]);
-    delay(600);
+    // delay(600);
     goal_mu = waypoint_buffer[waypoint_index].coord[3];
     update_gripper = true;
 
@@ -185,8 +185,9 @@ void planned_trajectory(float t) {
 
     if (t >= total_planned_time / 1e6f) return; //should never be reached anyways
     // determine current waypoint segment
-    uint8_t current_segment = (int) (t / (segment_planned_time / 1e6f));
-    if (current_segment == 0) current_segment = 1; //should also never be reached
+    uint8_t segment = max((int) (t / (segment_planned_time / 1e6f)), 1);
+    if (current_segment != segment && waypoint_buffer[segment-1].coord[4] >= 0.0) move_gripper(waypoint_buffer[segment-1].coord[4]);
+    current_segment = segment;
     float elapsed_in_segment = t - current_segment * (segment_planned_time / 1e6f);
     for (uint8_t j = 0; j < N; j++) {
         float start_angle = waypoint_buffer[current_segment-1].coord[j];
@@ -196,5 +197,6 @@ void planned_trajectory(float t) {
         // Linear interpolation
         target_angle_snap[j] = start_angle + (end_angle - start_angle) * (elapsed_in_segment / segment_time);
     }
+    goal_mu = waypoint_buffer[current_segment].coord[3];
 
 }

@@ -12,6 +12,8 @@ void begin_reset() {
 
     while (!homed_all) reset();
 
+    delay(200);
+
     for (uint8_t j = 0; j < N; j++) {
         current_angle[j] = calibrated_angles[j];
         current_step[j] = (int)((current_angle[j] * RESOLUTION[j]) / 360.0);

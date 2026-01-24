@@ -8,7 +8,7 @@ uint8_t DIR[N] = {9, 3, 6};
 uint8_t LS[N] = {11, 13 , 12}; bool inv_LS[N] = {false, true, true};
 float RESOLUTION[N] = {8.f*400.f*4.f, 8.f*200.f*54.5f*1.011f, 8.f*200.f*54.5f*0.978f};
 float max_speed[N] = {30., 15., 15.};
-float reset_speed[N] = {15., 5., 5.};
+float reset_speed[N] = {5., 5., 5.};
 float acceleration[N] = {50., 20., 20.};
 bool inv_dir[N] = {false, true, false};
 
@@ -37,10 +37,12 @@ unsigned long current_time_millis = 0;
 // ===========================
 float current_angle[N] = {0.0, 0.0, 0.0};
 int current_step[N] = {0, 0, 0};
-float current_gamma = 1000.0;
+float current_gamma = 0.0;
 float goal_mu = 0.0;
 bool update_gripper = false;
 float gamma_diff_threshold = 1.0;
+float current_gripper = 0.0;
+float goal_gripper = 0.0;
 
 // ===========================
 // HOME VARIABLES
@@ -50,7 +52,7 @@ bool homed_all = true;
 unsigned long last_homing_step[N] = {0, 0, 0};
 float homing_delay[N] = {2000, 2000, 2000};
 bool inv_dir_homing[N] = {false, true, false};
-float calibrated_angles[N] = {-3, -16.8,43.8+1.5};
+float calibrated_angles[N] = {-2.5, -16.8,43.8+2.5};
 
 // ===========================
 // KINEMATICS RESULTS
@@ -129,3 +131,4 @@ bool paused_execution = false;
 unsigned long segment_planned_time = 0;
 unsigned long total_planned_time = 0;
 bool must_execute_planned = false;
+uint8_t current_segment = 0;

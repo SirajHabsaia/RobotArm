@@ -1,18 +1,80 @@
 from Designer.ui_gui import Ui_MainWindow
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog, QAbstractItemView
-from PySide6.QtCore import Qt, QPoint, QRect, QUrl, QTimer
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout, QFileDialog, QAbstractItemView, QMessageBox
+from PySide6.QtCore import Qt, QPoint, QRect, QUrl, QTimer, QThread, Signal
+from PySide6.QtGui import QDesktopServices, QImage, QPixmap
 from home import AspectRatioLabel
 from ThreeD import RobotVTKWidget
 from ring_slider import RingSlider
 from graph import CoordinateSystemWidget
+from Chess.widget import ChessWidget
+from Chess.board_detector import BoardDetector
+from Chess.config import BoardAnalyzerConfig
+from Chess.chess_manager import ChessManager
 from pathlib import Path
 import json
 import math
 import serial
 import serial.tools.list_ports
 import numpy as np
+import cv2
+import os
 from kinematics import direct_kinematics, inverse_kinematics, gamma_to_mu, mu_to_gamma
+
+
+class BoardDetectorThread(QThread):
+    """Worker thread for running board detector stream processing."""
+    frame_ready = Signal(np.ndarray)  # Signal to emit processed frames
+    board_state_ready = Signal(object)  # Signal to emit board state (8x8 matrix)
+    error_occurred = Signal(str)  # Signal to emit errors
+    
+    def __init__(self, config, side):
+        super().__init__()
+        self.config = config
+        self.side = side
+        self.detector = None
+        self._running = False
+    
+    def run(self):
+        """Run the detector stream processing."""
+        try:
+            self.detector = BoardDetector(self.config, self.side)
+            self._running = True
+            
+            for result in self.detector.process_stream():
+                if not self._running:
+                    break
+                
+                if result is not None:
+                    # Emit the full region (hand detection) frame
+                    display_frame = result['display_big_cropped']
+                    self.frame_ready.emit(display_frame)
+                    
+                    # Debug: print result info
+                    if result['skipped']:
+                        reason = "Hand detected" if result['hand_detected'] else f"Cooldown ({result.get('cooldown_remaining', '?')})"
+                        # Don't print every skipped frame, too spammy
+                    else:
+                        print(f"[Detector] Frame analyzed, emitting board state...")
+                    
+                    # Emit board state if available (not skipped)
+                    if not result['skipped'] and result['board_state'] is not None:
+                        self.board_state_ready.emit(result['board_state'])
+        
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+        finally:
+            self.cleanup()
+    
+    def stop(self):
+        """Stop the detector thread."""
+        self._running = False
+    
+    def cleanup(self):
+        """Clean up resources."""
+        if self.detector is not None:
+            self.detector.release()
+            self.detector = None
+
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -50,6 +112,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # Setup the 2D coordinate system widget
         self._setup_coordinate_system()
+        
+        # Setup the chess board widget
+        self._setup_chess_widget()
+        
+        # Chess board detector (chess_manager is initialized in _setup_chess_widget)
+        self.detector_thread = None
+        self.detector_running = False
+        
+        # Setup chess detector controls
+        self._setup_chess_detector_controls()
 
         self.HomeBtn1.clicked.connect(lambda: self.switch_menu(0))
         self.HomeBtn2.clicked.connect(lambda: self.switch_menu(0))
@@ -707,6 +779,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.yLabel.setText(f"{self.current_y:.1f}")
             self.zLabel.setText(f"{self.current_z:.1f}")
             
+            # Update 3D viewer with new mu value
+            if self.robot_viewer:
+                self.robot_viewer.set_mu(mu_value)
+            
         except serial.SerialException as e:
             print(f"Serial error: {e}")
             self._on_disconnect_com()
@@ -951,9 +1027,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def _setup_3d_viewer(self):
         """Setup the 3D robot viewer and embed it in ThreeDWidget1"""
-        # Create the robot viewer widget once in non-interactive mode
-        # This disables mouse controls and uses fixed camera position
-        self.robot_viewer = RobotVTKWidget(self.ThreeDWidget1, interactive=False)
+        # Create the robot viewer widget in interactive mode
+        # Allows user to rotate, zoom, and pan the camera
+        self.robot_viewer = RobotVTKWidget(self.ThreeDWidget1, interactive=True)
         
         # Load the robot models
         models_dir = Path(__file__).parent / "Models"
@@ -989,6 +1065,244 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # Connect coordinate changes to handle waypoints and update sliders
         self.coord_system.coordinatesChanged.connect(self._on_graph_clicked)
+    
+    def _setup_chess_widget(self):
+        """Setup the chess board widget and embed it in chessWidget"""
+        # Create the chess widget with default orientation (white at bottom)
+        self.chess_board = ChessWidget(parent=self.chessWidget, orientation='white')
+        
+        # Add the chess widget inside chessWidget using a layout with center alignment
+        container_layout = QVBoxLayout(self.chessWidget)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        container_layout.addWidget(self.chess_board, alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        
+        # Initialize chess manager with the widget
+        try:
+            self.chess_manager = ChessManager(self.chess_board)
+            print(f"[GUI] ChessManager initialized successfully: {self.chess_manager}")
+        except Exception as e:
+            print(f"[GUI] ERROR initializing ChessManager: {e}")
+            import traceback
+            traceback.print_exc()
+            self.chess_manager = None
+    
+    def _setup_chess_detector_controls(self):
+        """Setup chess board detector controls and connections."""
+        # Create a label to display camera feed in camWidget
+        self.cam_label = QLabel(self.camWidget)
+        self.cam_label.setGeometry(0, 0, 300, 300)
+        self.cam_label.setScaledContents(True)
+        self.cam_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.cam_label.setStyleSheet("background-color: rgb(21, 21, 21);")
+        
+        # Connect input mode buttons to update the label
+        self.chess_camidBtn.toggled.connect(self._on_chess_input_mode_changed)
+        self.chess_camipBtn.toggled.connect(self._on_chess_input_mode_changed)
+        self.chess_videoBtn.toggled.connect(self._on_chess_input_mode_changed)
+        
+        # Connect initialize button
+        self.chess_initializeBtn.clicked.connect(self._on_chess_initialize_toggle)
+        
+        # Set default mode label
+        self._update_chess_mode_label()
+    
+    def _update_chess_mode_label(self):
+        """Update the chess mode label based on selected input mode."""
+        if self.chess_camidBtn.isChecked():
+            self.chess_modeLabel.setText("Camera ID:")
+        elif self.chess_camipBtn.isChecked():
+            self.chess_modeLabel.setText("Camera IP:")
+        elif self.chess_videoBtn.isChecked():
+            self.chess_modeLabel.setText("Video Path:")
+        else:
+            # Default to Camera ID if none selected
+            self.chess_modeLabel.setText("Camera ID:")
+    
+    def _on_chess_input_mode_changed(self):
+        """Handle input mode button toggle."""
+        self._update_chess_mode_label()
+    
+    def _on_chess_initialize_toggle(self):
+        """Handle initialize/stop button toggle."""
+        if not self.detector_running:
+            # Start detector
+            self._start_chess_detector()
+        else:
+            # Stop detector
+            self._stop_chess_detector()
+    
+    def _start_chess_detector(self):
+        """Start the chess board detector."""
+        # Validate inputs
+        config = self._get_chess_detector_config()
+        if config is None:
+            return  # Error dialog already shown
+        
+        # Get selected side
+        side = "white" if self.chess_mode_whiteBtn.isChecked() else "black"
+        
+        # Create and start detector thread
+        self.detector_thread = BoardDetectorThread(config, side)
+        self.detector_thread.frame_ready.connect(self._on_detector_frame_ready)
+        self.detector_thread.board_state_ready.connect(self._on_board_state_ready)
+        self.detector_thread.error_occurred.connect(self._on_detector_error)
+        self.detector_thread.finished.connect(self._on_detector_finished)
+        self.detector_thread.start()
+        
+        # Update button state
+        self.detector_running = True
+        self.chess_initializeBtn.setText("Stop")
+        
+        # Disable input controls while running
+        self.chess_camidBtn.setEnabled(False)
+        self.chess_camipBtn.setEnabled(False)
+        self.chess_videoBtn.setEnabled(False)
+        self.chess_infoLineEdit.setEnabled(False)
+        self.chess_mode_whiteBtn.setEnabled(False)
+        self.chess_mode_blackBtn.setEnabled(False)
+        self.chess_thresholdLineEdit.setEnabled(False)
+    
+    def _stop_chess_detector(self):
+        """Stop the chess board detector."""
+        if self.detector_thread is not None:
+            self.detector_thread.stop()
+            self.detector_thread.wait()  # Wait for thread to finish
+            self.detector_thread = None
+        
+        # Update button state
+        self.detector_running = False
+        self.chess_initializeBtn.setText("Initialize")
+        
+        # Re-enable input controls
+        self.chess_camidBtn.setEnabled(True)
+        self.chess_camipBtn.setEnabled(True)
+        self.chess_videoBtn.setEnabled(True)
+        self.chess_infoLineEdit.setEnabled(True)
+        self.chess_mode_whiteBtn.setEnabled(True)
+        self.chess_mode_blackBtn.setEnabled(True)
+        self.chess_thresholdLineEdit.setEnabled(True)
+        
+        # Clear camera display
+        self.cam_label.clear()
+        self.cam_label.setStyleSheet("background-color: rgb(21, 21, 21);")
+    
+    def _get_chess_detector_config(self):
+        """Get and validate chess detector configuration."""
+        config = BoardAnalyzerConfig()
+        
+        # Get input mode
+        if self.chess_camidBtn.isChecked():
+            mode = "camera"
+            input_text = self.chess_infoLineEdit.text().strip()
+            
+            if not input_text:
+                QMessageBox.critical(self, "Invalid Input", "Please enter a camera ID (e.g., 0, 1, 2)")
+                return None
+            
+            try:
+                camera_id = int(input_text)
+                config.camera_index = camera_id
+            except ValueError:
+                QMessageBox.critical(self, "Invalid Input", "Camera ID must be a number (e.g., 0, 1, 2)")
+                return None
+        
+        elif self.chess_camipBtn.isChecked():
+            mode = "ip_camera"
+            input_text = self.chess_infoLineEdit.text().strip()
+            
+            if not input_text:
+                QMessageBox.critical(self, "Invalid Input", "Please enter a camera IP address or URL")
+                return None
+            
+            config.camera_ip = input_text
+        
+        elif self.chess_videoBtn.isChecked():
+            mode = "video"
+            input_text = self.chess_infoLineEdit.text().strip()
+            
+            if not input_text:
+                QMessageBox.critical(self, "Invalid Input", "Please enter a video file path")
+                return None
+            
+            # Convert to absolute path if relative
+            video_path = Path(input_text)
+            if not video_path.is_absolute():
+                video_path = Path(__file__).parent / "Chess" / video_path
+            
+            if not video_path.exists():
+                QMessageBox.critical(self, "File Not Found", f"Video file not found:\n{video_path}")
+                return None
+            
+            config.video_path = str(video_path)
+        
+        else:
+            QMessageBox.critical(self, "No Mode Selected", "Please select an input mode (Camera ID, Camera IP, or Video)")
+            return None
+        
+        config.mode = mode
+        
+        # Get hand detection threshold
+        threshold_text = self.chess_thresholdLineEdit.text().strip()
+        if threshold_text:
+            try:
+                threshold = float(threshold_text)
+                config.hand_contour_threshold = threshold
+            except ValueError:
+                QMessageBox.warning(self, "Invalid Threshold", "Hand detection threshold must be a number. Using default value (200.0)")
+        
+        # Validate side selection
+        if not self.chess_mode_whiteBtn.isChecked() and not self.chess_mode_blackBtn.isChecked():
+            QMessageBox.critical(self, "No Side Selected", "Please select which side you're playing (White or Black)")
+            return None
+        
+        return config
+    
+    def _on_detector_frame_ready(self, frame):
+        """Handle new frame from detector."""
+        # Convert frame from BGR to RGB
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Resize to 300x300 for display
+        frame_resized = cv2.resize(frame_rgb, (300, 300))
+        
+        # Convert to QImage
+        h, w, ch = frame_resized.shape
+        bytes_per_line = ch * w
+        qt_image = QImage(frame_resized.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        
+        # Display in label
+        self.cam_label.setPixmap(QPixmap.fromImage(qt_image))
+    
+    def _on_board_state_ready(self, board_state):
+        """Handle new board state from detector."""
+        # board_state is 8x8 matrix of (class_label, confidence) tuples
+        print(f"Board state received from detector")
+        
+        # Debug: print first row to see format
+        if board_state and len(board_state) > 0:
+            print(f"First row sample: {board_state[0][:3]}")  # Print first 3 squares
+        
+        # Pass to chess manager for validation
+        if self.chess_manager:
+            print("Passing to chess manager...")
+            validated = self.chess_manager.process_detected_state(board_state)
+            if validated:
+                print(f"✓ Board updated! FEN: {self.chess_manager.get_fen()}")
+            else:
+                print("✗ Move validation failed")
+        else:
+            print("ERROR: chess_manager is None!")
+    
+    def _on_detector_error(self, error_msg):
+        """Handle detector error."""
+        QMessageBox.critical(self, "Detector Error", f"An error occurred:\n{error_msg}")
+        self._stop_chess_detector()
+    
+    def _on_detector_finished(self):
+        """Handle detector thread finished."""
+        # This is called when the thread finishes naturally or after stop()
+        pass
     
     def _on_graph_clicked(self, x, y):
         """Handle coordinate changes from the coordinate system widget"""
@@ -2056,7 +2370,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             except ValueError:
                 pass  # Not a valid waypoint notification, continue parsing
         
-        # Feedback format: "t<theta>a<alpha>b<beta>" or "d<date>t<theta>a<alpha>b<beta>"
+        # Feedback format: "t<theta>a<alpha>b<beta>h<gamma>g<gripper>" or "d<date>t<theta>a<alpha>b<beta>h<gamma>g<gripper>"
         try:
             # Remove optional date prefix if present
             if line.startswith('d'):
@@ -2066,31 +2380,96 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     return
                 line = line[t_index:]  # Strip everything before 't'
             
-            # Now parse: t<theta>a<alpha>b<beta>
+            # Now parse: t<theta>a<alpha>b<beta>h<gamma>g<gripper>
             if not line.startswith('t'):
                 return
             
-            # Extract values
-            parts = line[1:].replace('a', ' ').replace('b', ' ').split()
+            # Extract theta, alpha, beta
+            parts = line[1:].replace('a', ' ').replace('b', ' ').replace('h', ' ').replace('g', ' ').split()
             if len(parts) >= 3:
                 theta = float(parts[0])
                 alpha = float(parts[1])
                 beta = float(parts[2])
                 
+                # Extract gamma if present
+                gamma = None
+                if len(parts) >= 4:
+                    gamma = float(parts[3])
+                
+                # Extract gripper if present
+                gripper = None
+                if len(parts) >= 5:
+                    gripper = float(parts[4])
+                
                 # Store current alpha for mu/gamma conversion
                 self.current_alpha = alpha
+                
+                # Update ring sliders with received values
+                self.theta_slider.blockSignals(True)
+                self.theta_slider.setValue(theta)
+                self.theta_slider.blockSignals(False)
+                
+                self.alpha_slider.blockSignals(True)
+                self.alpha_slider.setValue(alpha)
+                self.alpha_slider.blockSignals(False)
+                
+                self.beta_slider.blockSignals(True)
+                self.beta_slider.setValue(beta)
+                self.beta_slider.blockSignals(False)
+                
+                # Update pending values to match current state (prevent old values being sent)
+                self.pending_theta = theta
+                self.pending_alpha = alpha
+                self.pending_beta = beta
+                
+                # Update gamma slider and internal state if received
+                if gamma is not None:
+                    self.current_gamma = gamma
+                    self.gamma_slider.blockSignals(True)
+                    self.gamma_slider.setValue(int(gamma))
+                    self.gamma_slider.blockSignals(False)
+                    self.pending_gamma = gamma
+                
+                # Update gripper slider if received
+                if gripper is not None:
+                    # Convert gripper angle (0-180) to percentage (0-100)
+                    gripper_min = self.params.get("grippermin", 0)
+                    gripper_max = self.params.get("grippermax", 180)
+                    gripper_percentage = int(((gripper - gripper_min) / (gripper_max - gripper_min)) * 100)
+                    gripper_percentage = max(0, min(100, gripper_percentage))  # Clamp to 0-100
+                    
+                    self.griperSlider.blockSignals(True)
+                    self.griperSlider.setValue(gripper_percentage)
+                    self.griperSlider.blockSignals(False)
+                    self.last_gripper_percentage = gripper_percentage
+                    self.pending_gripper = gripper_percentage
                 
                 # Convert degrees to radians for kinematics
                 theta_rad = np.radians(theta)
                 alpha_rad = np.radians(alpha)
                 beta_rad = np.radians(beta)
                 
-                # Calculate gamma based on control mode
-                if self.controlling_mu:
-                    # Convert mu to gamma for direct kinematics
-                    gamma_rad = mu_to_gamma(np.radians(self.current_mu), alpha_rad)
+                # Use received gamma if available, otherwise calculate from mu
+                if gamma is not None:
+                    gamma_rad = np.radians(gamma)
+                    # Update mu based on received gamma
+                    mu_value = gamma_to_mu(gamma_rad, alpha_rad)
+                    mu_degrees = np.degrees(mu_value)
+                    self.current_mu = mu_degrees
+                    # Update mu slider without triggering events
+                    self.muSlider.blockSignals(True)
+                    self.muSlider.setValue(int(mu_degrees))
+                    self.muSlider.blockSignals(False)
+                    self.mulineEdit.blockSignals(True)
+                    self.mulineEdit.setText(str(int(mu_degrees)))
+                    self.mulineEdit.blockSignals(False)
+                    self.muLabel.setText(str(int(mu_degrees)))
                 else:
-                    gamma_rad = np.radians(self.current_gamma)
+                    # Calculate gamma based on control mode
+                    if self.controlling_mu:
+                        gamma_rad = mu_to_gamma(np.radians(self.current_mu), alpha_rad)
+                    else:
+                        gamma_rad = np.radians(self.current_gamma)
                 
                 # Calculate cartesian position using direct kinematics
                 position = direct_kinematics(theta_rad, alpha_rad, beta_rad, gamma_rad)
@@ -2108,19 +2487,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.robot_viewer.set_theta(theta)
                     self.robot_viewer.set_alpha(alpha)
                     self.robot_viewer.set_beta(beta)
+                    self.robot_viewer.set_mu(self.current_mu)
                     
-                    # Update mu in 3D viewer based on control mode
-                    if self.controlling_mu:
-                        # Directly use current mu
-                        self.robot_viewer.set_mu(self.current_mu)
-                    else:
-                        # Calculate mu from gamma
-                        mu_value = gamma_to_mu(np.radians(self.current_gamma), alpha_rad)
-                        mu_degrees = np.degrees(mu_value)
-                        self.current_mu = mu_degrees
-                        self.robot_viewer.set_mu(mu_degrees)
+                    # Update gripper in 3D viewer if received
+                    if gripper is not None:
+                        # Map gripper angle from 0-180 to 0-85 for 3D viewer
+                        gripper_mapped = (gripper / 180.0) * 85.0
+                        self.robot_viewer.set_gripper(gripper_mapped)
                 
-                print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")  # Debug output
+                print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° γ={gamma if gamma else 'N/A'}° grip={gripper if gripper else 'N/A'}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")
         except (ValueError, IndexError) as e:
             print(f"Parse error: {e} - Line: {line}")
     
@@ -2151,3 +2526,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Executing waypoint {waypoint_index}: mu={mu}°, gripper={gripper}%")
         else:
             print(f"Invalid waypoint index received: {waypoint_index}")
+    
+    def closeEvent(self, event):
+        """Handle application close event - cleanup resources."""
+        # Stop chess detector if running
+        if self.detector_running:
+            self._stop_chess_detector()
+        
+        # Accept the close event
+        event.accept()

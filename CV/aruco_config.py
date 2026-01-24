@@ -24,7 +24,7 @@ def get_aruco_detector():
     parameters.cornerRefinementMinAccuracy = 0.1
 
     # Detection thresholds - lower values = more permissive
-    parameters.minMarkerPerimeterRate = 0.03  # Min marker size (default: 0.03)
+    parameters.minMarkerPerimeterRate = 0.01  # Min marker size (default: 0.03)
     parameters.maxMarkerPerimeterRate = 4.0   # Max marker size (default: 4.0)
     parameters.polygonalApproxAccuracyRate = 0.05  # Lower = more permissive (default: 0.03)
     parameters.minCornerDistanceRate = 0.05  # Min distance between corners (default: 0.05)

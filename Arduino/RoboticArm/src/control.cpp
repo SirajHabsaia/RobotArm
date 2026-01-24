@@ -41,6 +41,7 @@ void move_gamma(float target_angle, int speed) {
     packet[10] = Checksum;
 
     SERIAL_DXL.write(packet, length);
+    current_gamma = target_angle;
 }
 }
 
@@ -68,5 +69,6 @@ void move_gripper(float activation) {
     packet[8] = Checksum;
 
     SERIAL_DXL.write(packet, length);
+    current_gripper = target_position;
 }
 }

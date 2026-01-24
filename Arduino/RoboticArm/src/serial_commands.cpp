@@ -206,6 +206,7 @@ void readSerial() {
             line.trim();
             float gamma_angle = line.toFloat();
             update_gripper = false;
+            goal_mu = 0.0;
             move_gamma(gamma_angle, 150);
         } else if (c == 'g') { // gripper
             String line = Serial.readStringUntil('\n');
@@ -301,7 +302,7 @@ void readSerial() {
             Serial.print("n");
             // Serial.println(waypoint_index); // 0
         } else if (c == 'w') { // receive planned waypoints
-            // Format: wn<count>d<time_us>,t<theta>a<alpha>b<beta>,t<theta>a<alpha>b<beta>,...
+            // Format: wn<count>d<time_us>,t<theta>a<alpha>b<beta>m<mu>g<gripper>,t<theta>a<alpha>b<beta>m<mu>g<gripper>,...
             // Read count and time (up to first comma)
             String header = Serial.readStringUntil(',');
             header.trim();
@@ -327,25 +328,29 @@ void readSerial() {
                 String wp_str = Serial.readStringUntil(',');
                 wp_str.trim();
                 
-                // Parse t<theta>a<alpha>b<beta>
+                // Parse t<theta>a<alpha>b<beta>m<mu>g<gripper>
                 int t_idx = wp_str.indexOf('t');
                 int a_idx = wp_str.indexOf('a');
                 int b_idx = wp_str.indexOf('b');
+                int m_idx = wp_str.indexOf('m');
+                int g_idx = wp_str.indexOf('g');
                 
-                if (t_idx != -1 && a_idx != -1 && b_idx != -1 && 
-                    a_idx > t_idx && b_idx > a_idx) {
+                if (t_idx != -1 && a_idx != -1 && b_idx != -1 && m_idx != -1 && g_idx != -1 &&
+                    a_idx > t_idx && b_idx > a_idx && m_idx > b_idx && g_idx > m_idx) {
                     
                     String theta_str = wp_str.substring(t_idx + 1, a_idx);
                     String alpha_str = wp_str.substring(a_idx + 1, b_idx);
-                    String beta_str = wp_str.substring(b_idx + 1);
+                    String beta_str = wp_str.substring(b_idx + 1, m_idx);
+                    String mu_str = wp_str.substring(m_idx + 1, g_idx);
+                    String gripper_str = wp_str.substring(g_idx + 1);
                     
                     waypoint_buffer[i].coord[0] = theta_str.toFloat();
                     waypoint_buffer[i].coord[1] = alpha_str.toFloat();
                     waypoint_buffer[i].coord[2] = beta_str.toFloat();
-                    waypoint_buffer[i].coord[3] = 0.0; // mu
-                    waypoint_buffer[i].coord[4] = 0.0; // gripper
+                    waypoint_buffer[i].coord[3] = mu_str.toFloat();
+                    waypoint_buffer[i].coord[4] = gripper_str.toFloat();
                 } else {
-                    Serial.println("Invalid waypoint format. Use: t<theta>a<alpha>b<beta>");
+                    Serial.println("Invalid waypoint format. Use: t<theta>a<alpha>b<beta>m<mu>g<gripper>");
                     return;
                 }
             }
@@ -354,6 +359,8 @@ void readSerial() {
             for (uint8_t j = 0; j < N; j++) {
                 target_angle_interpolation[j] = waypoint_buffer[0].coord[j];
             }
+            goal_mu = waypoint_buffer[0].coord[3];
+            update_gripper = true;
             must_execute_planned = true;
             begin_interpolate();
         } else if (c == 's') { // Stop all movements

@@ -10,9 +10,11 @@ void setup()
 {
 	ax12a.begin(BaudRate, DirectionPin, &Serial1);
   Serial.begin(115200);
-  pinMode(10, OUTPUT);
-  digitalWrite(10, LOW);
-  //ax12a.move(ID, 3500);
+  delay(100);
+  ax12a.setCMargin(ID, 20, 20);
+  delay(100);
+  ax12a.setCSlope(ID, 128, 128);
+  delay(100);
 }
 
 void loop() {
@@ -20,7 +22,8 @@ void loop() {
   delay(1000);
   if (Serial.available()) {
     int target_position = Serial.parseInt();
-    ax12a.setMaxTorque(ID, 150);
-    ax12a.moveSpeed(ID, target_position, 100);
+    ax12a.setMaxTorque(ID, 512);
+    // ax12a.moveSpeed(ID, target_position, 100);
+    ax12a.move(ID, target_position);
   }
 }

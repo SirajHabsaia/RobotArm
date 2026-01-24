@@ -51,6 +51,8 @@ extern float current_gamma; // current gamma angle for gripper
 extern float goal_mu; // goal mu angle for gripper
 extern bool update_gripper; // flag to update gripper position
 extern float gamma_diff_threshold; // threshold for gamma update
+extern float current_gripper; // current gripper position
+extern float goal_gripper; // goal gripper position
 
 // ===========================
 // HOME VARIABLES
@@ -144,5 +146,6 @@ extern bool paused_execution;
 extern unsigned long segment_planned_time; //us
 extern unsigned long total_planned_time; //us
 extern bool must_execute_planned; // start planned traj after interpolation
+extern uint8_t current_segment;
 
 #endif // CONFIG_H

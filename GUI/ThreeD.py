@@ -423,13 +423,8 @@ class RobotVTKWidget(QWidget):
         # Apply initial transforms
         self.update_transforms()
         
-        # Setup camera
-        if not self.interactive:
-            # Set fixed camera view for embedded mode
-            self.set_fixed_camera()
-        else:
-            # Reset camera for interactive mode
-            self.renderer.ResetCamera()
+        # Setup camera to default position (works for both interactive and fixed modes)
+        self.set_fixed_camera()
         
         self.vtk_widget.GetRenderWindow().Render()
     
