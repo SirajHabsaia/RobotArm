@@ -91,10 +91,14 @@ fig, axes = plt.subplots(n_joints, 2, figsize=(12, 4 * n_joints))
 for j in range(n_joints):
     axes[j, 0].plot(times, vel[j])
     axes[j, 0].set_title(f"{joints_names[j]} - Velocity (peak {v_peak[j]:.3f})")
+    axes[j, 0].set_xlabel("Time t (s)")
+    axes[j, 0].set_ylabel("Velocity (deg/s)")
     axes[j, 0].grid(True)
     axes[j, 1].plot(times, pos[j])
     axes[j, 1].axhline(final_point[j], color='k', linestyle='--', linewidth=0.8)
     axes[j, 1].set_title(f"{joints_names[j]} - Position (final {final_positions[j]:.3f})")
+    axes[j, 1].set_xlabel("Time t (s)")
+    axes[j, 1].set_ylabel("Position (deg)")
     axes[j, 1].grid(True)
-plt.tight_layout(h_pad=2.0)  # Increase vertical gap between graphs
+plt.tight_layout(pad=5.0,w_pad=5.0, h_pad=5.0)  # Increase vertical gap between graphs
 plt.show()

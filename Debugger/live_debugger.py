@@ -38,14 +38,15 @@ class SerialThread(QThread):
                 if not line:
                     continue
 
-                # Expected: d<time>t<theta>a<angle1>b<angle2>
+                # Expected: d<time>t<theta>a<alpha>b<beta>h<gamma>g<gripper>
                 if not (line.startswith("d") and "t" in line and "a" in line and "b" in line):
                     continue
 
                 t = float(line.split("t")[0][1:])  # Extract time after 'd'
                 theta = float(line.split("t")[1].split("a")[0])  # Extract theta
-                a = float(line.split("a")[1].split("b")[0])
-                b = float(line.split("b")[1])
+                a = float(line.split("a")[1].split("b")[0])  # Extract alpha
+                b = float(line.split("b")[1].split("h")[0])  # Extract beta (before 'h')
+                # Ignore gamma (h) and gripper (g)
 
                 self.new_sample.emit(t, theta, a, b)
 

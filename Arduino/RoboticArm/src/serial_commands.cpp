@@ -198,6 +198,7 @@ void readSerial() {
             String line = Serial.readStringUntil('\n');
             line.trim();
             goal_mu = line.toFloat();
+            move_gamma(gamma_to_mu(goal_mu), 150);
             update_gripper = true;
         } else if (c == 'k') { // kinematics debugging
             goal_mu = 0.0; // Set a sample gamma angle for testing

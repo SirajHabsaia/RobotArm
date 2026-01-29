@@ -2,9 +2,12 @@
 #include "config.h"
 #include "control.h"
 #include "kinematics.h"
+#include "feedback.h"
 #include <math.h>
 
 void begin_trajectory() {
+    toggle_motors(true);
+
     trajectory_start_us = micros();
     currently_following_trajectory = true;
 }
@@ -30,10 +33,9 @@ void follow_trajectory(void (*trajectory_func)(float)) {
             currently_following_planned = true;
             trajectory_time = total_planned_time / 1e6f;
             begin_trajectory();
-        }
-
+        } else toggle_motors(false);
+        feedback(true);
         return;
-
     }
     
     trajectory_func(t);
@@ -137,9 +139,7 @@ void execute_waypoint_list() {
     }
     if (!done_waypoint || paused_execution) return;
     
-    // delay(100);
     move_gripper(waypoint_buffer[waypoint_index].coord[4]);
-    // delay(600);
     goal_mu = waypoint_buffer[waypoint_index].coord[3];
     update_gripper = true;
 

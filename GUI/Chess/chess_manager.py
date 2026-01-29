@@ -58,6 +58,9 @@ class ChessManager:
         # Cols: file a to h (index 0 = file a, index 7 = file h)
         self.current_state = self._board_to_matrix()
         
+        # Store previous detected state to avoid reprocessing same state
+        self.previous_detected_state = None
+        
         # Update widget to show initial position
         self.chess_widget.set_board_state(self.current_state)
     
@@ -235,23 +238,24 @@ class ChessManager:
         Returns:
             True if state was validated and updated, False otherwise
         """
-        print(f"[ChessManager] Processing detected state...")
-        
         # Convert detected state to color-only matrix
         detected_colors = self._get_color_matrix(detected_state)
         
-        # Debug: print detected colors summary
-        white_count = sum(1 for row in detected_colors for c in row if c is True)
-        black_count = sum(1 for row in detected_colors for c in row if c is False)
-        empty_count = sum(1 for row in detected_colors for c in row if c is None)
-        print(f"[ChessManager] Detected: {white_count}W, {black_count}B, {empty_count}E")
+        # Check if this state is different from previous detection
+        if self.previous_detected_state is not None:
+            if self._states_are_equal(self.previous_detected_state, detected_colors):
+                # Same state as before, no need to process
+                return False
         
-        # Try to find a legal move that matches the detected state
+        # Store this state as the new previous state
+        self.previous_detected_state = [row[:] for row in detected_colors]
+        
+        # New state detected, try to find a legal move
         move = self._find_matching_move(detected_colors)
         
         if move is not None:
             # Valid move found!
-            print(f"[ChessManager] ✓ Valid move detected: {move.uci()}")
+            print(f"[ChessManager] ✓ Valid move: {move.uci()}")
             
             # Apply move to board
             self.board.push(move)
@@ -262,13 +266,10 @@ class ChessManager:
             # Update chess widget
             self.chess_widget.set_board_state(self.current_state)
             
-            print(f"[ChessManager] Board updated! FEN: {self.board.fen()}")
-            
             return True
         else:
             # Invalid or unclear move
-            print(f"[ChessManager] ✗ No valid move found for detected state")
-            print(f"[ChessManager] Current legal moves: {self.board.legal_moves.count()}")
+            print(f"[ChessManager] ✗ Invalid board state detected")
             return False
     
     def _get_color_matrix(self, detected_state: List[List[Tuple[str, float]]]) -> List[List[Optional[bool]]]:
@@ -296,6 +297,23 @@ class ChessManager:
                     color_row.append(None)  # Unknown, treat as empty
             color_matrix.append(color_row)
         return color_matrix
+    
+    def _states_are_equal(self, state1: List[List[Optional[bool]]], state2: List[List[Optional[bool]]]) -> bool:
+        """
+        Compare two color matrices for equality.
+        
+        Args:
+            state1: First 8x8 color matrix
+            state2: Second 8x8 color matrix
+        
+        Returns:
+            True if states are identical
+        """
+        for row in range(8):
+            for col in range(8):
+                if state1[row][col] != state2[row][col]:
+                    return False
+        return True
     
     def _find_matching_move(self, detected_colors: List[List[Optional[bool]]]) -> Optional[chess.Move]:
         """
@@ -357,6 +375,7 @@ class ChessManager:
         """Reset board to starting position."""
         self.board = chess.Board()
         self.current_state = self._board_to_matrix()
+        self.previous_detected_state = None
         self.chess_widget.set_board_state(self.current_state)
     
     def get_fen(self) -> str:

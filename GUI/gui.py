@@ -53,13 +53,6 @@ class BoardDetectorThread(QThread):
                     display_frame = result['display_big_cropped']
                     self.frame_ready.emit(display_frame)
                     
-                    # Debug: print result info
-                    if result['skipped']:
-                        reason = "Hand detected" if result['hand_detected'] else f"Cooldown ({result.get('cooldown_remaining', '?')})"
-                        # Don't print every skipped frame, too spammy
-                    else:
-                        print(f"[Detector] Frame analyzed, emitting board state...")
-                    
                     # Emit board state if available (not skipped and not paused)
                     if not result['skipped'] and result['board_state'] is not None and not self.pause_detection:
                         self.board_state_ready.emit(result['board_state'])
@@ -129,6 +122,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.chess_engine = None
         self.waiting_for_arduino = False  # Flag to indicate waiting for 'D' response
         self.verifying_robot_move = False  # Flag to indicate we're verifying robot's move (not user's)
+        
+        # Initialize trajectory planner (used for chess moves)
+        self._setup_trajectory_planner()
         
         # Setup chess detector controls
         self._setup_chess_detector_controls()
@@ -698,13 +694,50 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             
             angles = inverse_kinematics(x, y, z, mu=mu_rad)
             
+            # Validate that angles are valid numbers
+            if not all(np.isfinite(angle) for angle in angles):
+                raise ValueError("Inverse kinematics returned invalid angles (NaN or Inf)")
+            
             # Convert radians to degrees
             theta_deg = np.degrees(angles[0])
             alpha_deg = np.degrees(angles[1])
             beta_deg = np.degrees(angles[2])
             
+            # Validate converted angles
+            if not all(np.isfinite(angle) for angle in [theta_deg, alpha_deg, beta_deg]):
+                raise ValueError("Angle conversion resulted in invalid values")
+            
             # Normalize theta to 0-360 range
             theta_deg = theta_deg % 360
+            
+            # Check alpha - beta constraint
+            diff = alpha_deg - beta_deg
+            diffmin = self.params.get('diffmin', -62)
+            diffmax = self.params.get('diffmax', 56)
+            
+            if not (diffmin <= diff <= diffmax):
+                # Show constraint warning
+                from PySide6.QtWidgets import QMessageBox
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle("Constraint Violation")
+                msg.setText(f"Position ({x:.2f}, {y:.2f}, {z:.2f}) violates joint constraints!\n\n"
+                           f"α - β = {diff:.1f}°\n"
+                           f"Must be between {diffmin}° and {diffmax}°")
+                msg.setInformativeText("This configuration may damage the robot or be unreachable.")
+                
+                # Add buttons
+                proceed_btn = msg.addButton("Proceed Anyway", QMessageBox.AcceptRole)
+                cancel_btn = msg.addButton("Cancel", QMessageBox.RejectRole)
+                msg.setDefaultButton(cancel_btn)
+                
+                # Show dialog and get result
+                msg.exec()
+                
+                if msg.clickedButton() != proceed_btn:
+                    # User cancelled
+                    print(f"Movement cancelled: constraint violation (α - β = {diff:.1f}°)")
+                    return
             
             # Update current_alpha and recalculate gamma if needed
             self.current_alpha = alpha_deg
@@ -718,15 +751,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.gamma_slider.setValue(gamma_degrees)
                 self.gamma_slider.blockSignals(False)
             
-            # Update ring sliders with calculated angles (without blocking signals)
+            # Update ring sliders with calculated angles as targets (green dots)
             # This will automatically trigger the angular command to be sent
-            self.theta_slider.setValue(theta_deg)
-            self.alpha_slider.setValue(alpha_deg)
-            self.beta_slider.setValue(beta_deg)
+            self.theta_slider.setTargetValue(theta_deg)
+            self.alpha_slider.setTargetValue(alpha_deg)
+            self.beta_slider.setTargetValue(beta_deg)
             
             print(f"Calculated angles: θ={theta_deg:.2f}° α={alpha_deg:.2f}° β={beta_deg:.2f}°")
             
         except Exception as e:
+            # Show error dialog
+            from PySide6.QtWidgets import QMessageBox
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Inverse Kinematics Error")
+            msg.setText(f"Position ({x:.2f}, {y:.2f}, {z:.2f}) is unreachable")
+            msg.setInformativeText(f"The inverse kinematics calculation failed:\n{str(e)}\n\nAborting movement.")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
             print(f"Inverse kinematics error: {e}")
     
     def _send_mu_command(self):
@@ -850,13 +892,50 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             
             angles = inverse_kinematics(x, y, z, mu=mu_rad)
             
+            # Validate that angles are valid numbers
+            if not all(np.isfinite(angle) for angle in angles):
+                raise ValueError("Inverse kinematics returned invalid angles (NaN or Inf)")
+            
             # Convert radians to degrees
             theta_deg = np.degrees(angles[0])
             alpha_deg = np.degrees(angles[1])
             beta_deg = np.degrees(angles[2])
             
+            # Validate converted angles
+            if not all(np.isfinite(angle) for angle in [theta_deg, alpha_deg, beta_deg]):
+                raise ValueError("Angle conversion resulted in invalid values")
+            
             # Normalize theta to 0-360 range
             theta_deg = theta_deg % 360
+            
+            # Check alpha - beta constraint
+            diff = alpha_deg - beta_deg
+            diffmin = self.params.get('diffmin', -62)
+            diffmax = self.params.get('diffmax', 56)
+            
+            if not (diffmin <= diff <= diffmax):
+                # Show constraint warning
+                from PySide6.QtWidgets import QMessageBox
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle("Constraint Violation")
+                msg.setText(f"Position ({x:.2f}, {y:.2f}, {z:.2f}) violates joint constraints!\n\n"
+                           f"α - β = {diff:.1f}°\n"
+                           f"Must be between {diffmin}° and {diffmax}°")
+                msg.setInformativeText("This configuration may damage the robot or be unreachable.")
+                
+                # Add buttons
+                proceed_btn = msg.addButton("Proceed Anyway", QMessageBox.AcceptRole)
+                cancel_btn = msg.addButton("Cancel", QMessageBox.RejectRole)
+                msg.setDefaultButton(cancel_btn)
+                
+                # Show dialog and get result
+                msg.exec()
+                
+                if msg.clickedButton() != proceed_btn:
+                    # User cancelled
+                    print(f"Movement cancelled: constraint violation (α - β = {diff:.1f}°)")
+                    return
             
             # Update current_alpha and recalculate gamma if needed
             self.current_alpha = alpha_deg
@@ -870,15 +949,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.gamma_slider.setValue(gamma_degrees)
                 self.gamma_slider.blockSignals(False)
             
-            # Update ring sliders with calculated angles
-         
-            self.theta_slider.setValue(theta_deg)
-            self.alpha_slider.setValue(alpha_deg)
-            self.beta_slider.setValue(beta_deg)
+            # Update ring sliders with calculated angles as targets (green dots)
+            # This will automatically trigger the angular command to be sent
+            self.theta_slider.setTargetValue(theta_deg)
+            self.alpha_slider.setTargetValue(alpha_deg)
+            self.beta_slider.setTargetValue(beta_deg)
             
             print(f"Calculated angles: θ={theta_deg:.2f}° α={alpha_deg:.2f}° β={beta_deg:.2f}°")
             
         except Exception as e:
+            # Show error dialog
+            from PySide6.QtWidgets import QMessageBox
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Inverse Kinematics Error")
+            msg.setText(f"Position ({x:.2f}, {y:.2f}, {z:.2f}) is unreachable")
+            msg.setInformativeText(f"The inverse kinematics calculation failed:\n{str(e)}\n\nAborting movement.")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
             print(f"Inverse kinematics error: {e}")
     
     def _enable_mouse_tracking(self, widget):
@@ -936,11 +1024,130 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.beta_slider = RingSlider(min_angle=60, max_angle=300, min_value=self.params['betamin'], max_value=self.params['betamax'], label="β", value=0, parent=self.betaWidget)
         beta_layout.addWidget(self.beta_slider)
         
-        # Create gamma slider
+        # Create gamma slider (no target system - direct control)
         gamma_layout = QVBoxLayout(self.gammaWidget)
         gamma_layout.setContentsMargins(0, 0, 0, 0)
-        self.gamma_slider = RingSlider(min_angle=60, max_angle=300, min_value=self.params['gammamin'], max_value=self.params['gammamax'], label="γ", value=None, parent=self.gammaWidget)
+        self.gamma_slider = RingSlider(min_angle=60, max_angle=300, min_value=self.params['gammamin'], max_value=self.params['gammamax'], label="γ", value=0, use_target=False, parent=self.gammaWidget)
         gamma_layout.addWidget(self.gamma_slider)
+        
+        # Connect validation for alpha and beta line edits
+        self._connect_ring_slider_validation()
+    
+    def _connect_ring_slider_validation(self):
+        """Connect validation to ring slider line edit inputs"""
+        # Disconnect the default editingFinished connections
+        self.alpha_slider.value_edit.editingFinished.disconnect()
+        self.beta_slider.value_edit.editingFinished.disconnect()
+        
+        # Connect to our validation methods
+        self.alpha_slider.value_edit.editingFinished.connect(lambda: self._validate_alpha_input())
+        self.beta_slider.value_edit.editingFinished.connect(lambda: self._validate_beta_input())
+    
+    def _validate_alpha_input(self):
+        """Validate alpha input from line edit and check constraint with beta"""
+        text = self.alpha_slider.value_edit.text()
+        try:
+            val = float(text)
+            
+            # Check if value is in range
+            if not (self.alpha_slider.min_value <= val <= self.alpha_slider.max_value):
+                self.alpha_slider.value_edit.setText(f"{self.alpha_slider._value:.1f}")
+                self.alpha_slider.value_edit.setReadOnly(True)
+                self.alpha_slider.value_edit.clearFocus()
+                return
+            
+            # Get current target beta (or actual value if no target set)
+            target_beta = self.beta_slider._target_value if self.beta_slider._target_value is not None else self.beta_slider._value
+            
+            # Calculate difference
+            diff = val - target_beta
+            diffmin = self.params.get('diffmin', -62)
+            diffmax = self.params.get('diffmax', 56)
+            
+            # Check if difference is within allowed range
+            if diffmin <= diff <= diffmax:
+                # Valid - proceed
+                self.alpha_slider.setTargetValue(val)
+            else:
+                # Invalid - show warning dialog
+                self._show_constraint_warning('alpha', val, target_beta, diff, diffmin, diffmax)
+        except ValueError:
+            self.alpha_slider.value_edit.setText(f"{self.alpha_slider._value:.1f}")
+        
+        # Always clear focus and set readonly after processing
+        self.alpha_slider.value_edit.setReadOnly(True)
+        self.alpha_slider.value_edit.clearFocus()
+        self.setFocus()  # Move focus to main window
+    
+    def _validate_beta_input(self):
+        """Validate beta input from line edit and check constraint with alpha"""
+        text = self.beta_slider.value_edit.text()
+        try:
+            val = float(text)
+            
+            # Check if value is in range
+            if not (self.beta_slider.min_value <= val <= self.beta_slider.max_value):
+                self.beta_slider.value_edit.setText(f"{self.beta_slider._value:.1f}")
+                self.beta_slider.value_edit.setReadOnly(True)
+                self.beta_slider.value_edit.clearFocus()
+                return
+            
+            # Get current target alpha (or actual value if no target set)
+            target_alpha = self.alpha_slider._target_value if self.alpha_slider._target_value is not None else self.alpha_slider._value
+            
+            # Calculate difference
+            diff = target_alpha - val
+            diffmin = self.params.get('diffmin', -62)
+            diffmax = self.params.get('diffmax', 56)
+            
+            # Check if difference is within allowed range
+            if diffmin <= diff <= diffmax:
+                # Valid - proceed
+                self.beta_slider.setTargetValue(val)
+            else:
+                # Invalid - show warning dialog
+                self._show_constraint_warning('beta', target_alpha, val, diff, diffmin, diffmax)
+        except ValueError:
+            self.beta_slider.value_edit.setText(f"{self.beta_slider._value:.1f}")
+        
+        # Always clear focus and set readonly after processing
+        self.beta_slider.value_edit.setReadOnly(True)
+        self.beta_slider.value_edit.clearFocus()
+        self.setFocus()  # Move focus to main window
+    
+    def _show_constraint_warning(self, changed_slider, alpha_val, beta_val, diff, diffmin, diffmax):
+        """Show warning dialog when constraint is violated"""
+        from PySide6.QtWidgets import QMessageBox
+        
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Constraint Violation")
+        msg.setText(f"The entered value violates joint constraints!\n\n"
+                   f"α - β = {diff:.1f}°\n"
+                   f"Must be between {diffmin}° and {diffmax}°")
+        msg.setInformativeText("This configuration may damage the robot or be unreachable.")
+        
+        # Add buttons
+        proceed_btn = msg.addButton("Proceed Anyway", QMessageBox.AcceptRole)
+        cancel_btn = msg.addButton("Cancel", QMessageBox.RejectRole)
+        msg.setDefaultButton(cancel_btn)
+        
+        # Show dialog and get result
+        msg.exec()
+        
+        if msg.clickedButton() == proceed_btn:
+            # User chose to proceed anyway
+            if changed_slider == 'alpha':
+                self.alpha_slider.setTargetValue(alpha_val)
+            else:
+                self.beta_slider.setTargetValue(beta_val)
+        else:
+            # User cancelled - revert to current value
+            if changed_slider == 'alpha':
+                self.alpha_slider.value_edit.setText(f"{self.alpha_slider._value:.1f}")
+            else:
+                self.beta_slider.value_edit.setText(f"{self.beta_slider._value:.1f}")
+
     
     def _connect_sliders_to_robot(self):
         """Connect ring sliders to debounced serial command sender"""
@@ -951,11 +1158,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.beta_slider.valueChanged.connect(lambda v: self._on_ring_slider_changed('beta', v))
         self.gamma_slider.valueChanged.connect(lambda v: self._on_gamma_slider_changed(v))
         
-        # Connect alpha and beta to update each other's prohibited zones
-        self.alpha_slider.valueChanged.connect(self._update_beta_prohibited_zone)
-        self.beta_slider.valueChanged.connect(self._update_alpha_prohibited_zone)
-        
-        # Initialize prohibited zones
+        # Initialize prohibited zones (will be updated from feedback)
         self._update_alpha_prohibited_zone()
         self._update_beta_prohibited_zone()
     
@@ -966,32 +1169,47 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self._updating_prohibited_zones = True
         try:
-            # Constraint: alpha - beta < diffmax => alpha < beta + diffmax
-            # Prohibited zone: alpha >= beta + diffmax (from min_prohibited to max)
             beta_value = self.beta_slider.value()
             diffmax = self.params.get('diffmax', 50)
-            
-            # Calculate the minimum prohibited alpha value
-            min_prohibited_alpha = beta_value + diffmax
+            diffmin = self.params.get('diffmin', -62)
             
             # Get alpha range
             alpha_min = self.params['alphamin']
             alpha_max = self.params['alphamax']
             
-            if min_prohibited_alpha >= alpha_max:
-                # No prohibited zone needed (all values are valid)
+            # First prohibited zone: alpha - beta > diffmax => alpha > beta + diffmax
+            min_prohibited_alpha1 = beta_value + diffmax
+            
+            if min_prohibited_alpha1 >= alpha_max:
+                # No prohibited zone 1
                 self.alpha_slider.prohibited_start = -1
                 self.alpha_slider.prohibited_end = -1
-            elif min_prohibited_alpha <= alpha_min:
-                # Entire range is prohibited (shouldn't happen in normal operation)
+            elif min_prohibited_alpha1 <= alpha_min:
+                # Entire range is prohibited (shouldn't happen)
                 self.alpha_slider.prohibited_start = self.alpha_slider.min_angle
                 self.alpha_slider.prohibited_end = self.alpha_slider.max_angle
             else:
-                # Calculate angle for the minimum prohibited value
-                prohibited_start_angle = self.alpha_slider.angle_for_value(min_prohibited_alpha)
-                # Prohibited zone is from prohibited_start_angle to max_angle
+                # Prohibited zone 1: from min_prohibited_alpha1 to max
+                prohibited_start_angle = self.alpha_slider.angle_for_value(min_prohibited_alpha1)
                 self.alpha_slider.prohibited_start = prohibited_start_angle
                 self.alpha_slider.prohibited_end = self.alpha_slider.max_angle
+            
+            # Second prohibited zone: alpha - beta < diffmin => alpha < beta + diffmin
+            max_prohibited_alpha2 = beta_value + diffmin
+            
+            if max_prohibited_alpha2 <= alpha_min:
+                # No prohibited zone 2
+                self.alpha_slider.prohibited_start2 = -1
+                self.alpha_slider.prohibited_end2 = -1
+            elif max_prohibited_alpha2 >= alpha_max:
+                # Entire range is prohibited
+                self.alpha_slider.prohibited_start2 = self.alpha_slider.min_angle
+                self.alpha_slider.prohibited_end2 = self.alpha_slider.max_angle
+            else:
+                # Prohibited zone 2: from min to max_prohibited_alpha2
+                prohibited_end_angle2 = self.alpha_slider.angle_for_value(max_prohibited_alpha2)
+                self.alpha_slider.prohibited_start2 = self.alpha_slider.min_angle
+                self.alpha_slider.prohibited_end2 = prohibited_end_angle2
             
             self.alpha_slider.update()
         finally:
@@ -1004,32 +1222,47 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self._updating_prohibited_zones = True
         try:
-            # Constraint: alpha - beta < diffmax => beta > alpha - diffmax
-            # Prohibited zone: beta <= alpha - diffmax (from min to max_prohibited)
             alpha_value = self.alpha_slider.value()
             diffmax = self.params.get('diffmax', 50)
-            
-            # Calculate the maximum prohibited beta value
-            max_prohibited_beta = alpha_value - diffmax
+            diffmin = self.params.get('diffmin', -62)
             
             # Get beta range
             beta_min = self.params['betamin']
             beta_max = self.params['betamax']
             
-            if max_prohibited_beta <= beta_min:
-                # No prohibited zone needed (all values are valid)
+            # First prohibited zone: alpha - beta > diffmax => beta < alpha - diffmax
+            max_prohibited_beta1 = alpha_value - diffmax
+            
+            if max_prohibited_beta1 <= beta_min:
+                # No prohibited zone 1
                 self.beta_slider.prohibited_start = -1
                 self.beta_slider.prohibited_end = -1
-            elif max_prohibited_beta >= beta_max:
-                # Entire range is prohibited (shouldn't happen)
+            elif max_prohibited_beta1 >= beta_max:
+                # Entire range is prohibited
                 self.beta_slider.prohibited_start = self.beta_slider.min_angle
                 self.beta_slider.prohibited_end = self.beta_slider.max_angle
             else:
-                # Calculate angle for the maximum prohibited value
-                prohibited_end_angle = self.beta_slider.angle_for_value(max_prohibited_beta)
-                # Prohibited zone is from min_angle to prohibited_end_angle
+                # Prohibited zone 1: from min to max_prohibited_beta1
+                prohibited_end_angle = self.beta_slider.angle_for_value(max_prohibited_beta1)
                 self.beta_slider.prohibited_start = self.beta_slider.min_angle
                 self.beta_slider.prohibited_end = prohibited_end_angle
+            
+            # Second prohibited zone: alpha - beta < diffmin => beta > alpha - diffmin
+            min_prohibited_beta2 = alpha_value - diffmin
+            
+            if min_prohibited_beta2 >= beta_max:
+                # No prohibited zone 2
+                self.beta_slider.prohibited_start2 = -1
+                self.beta_slider.prohibited_end2 = -1
+            elif min_prohibited_beta2 <= beta_min:
+                # Entire range is prohibited
+                self.beta_slider.prohibited_start2 = self.beta_slider.min_angle
+                self.beta_slider.prohibited_end2 = self.beta_slider.max_angle
+            else:
+                # Prohibited zone 2: from min_prohibited_beta2 to max
+                prohibited_start_angle2 = self.beta_slider.angle_for_value(min_prohibited_beta2)
+                self.beta_slider.prohibited_start2 = prohibited_start_angle2
+                self.beta_slider.prohibited_end2 = self.beta_slider.max_angle
             
             self.beta_slider.update()
         finally:
@@ -1076,6 +1309,38 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect coordinate changes to handle waypoints and update sliders
         self.coord_system.coordinatesChanged.connect(self._on_graph_clicked)
     
+    def _setup_trajectory_planner(self):
+        """Initialize the trajectory planner with parameters from params.json"""
+        joints_max_speeds = np.array([
+            self.params.get('thetamaxspeed', 30.0),
+            self.params.get('alphamaxspeed', 15.0),
+            self.params.get('betamaxspeed', 15.0)
+        ])  # deg/s
+        joints_max_accel = np.array([
+            self.params.get('thetamaxaccel', 100.0),
+            self.params.get('alphamaxaccel', 90.0),
+            self.params.get('betamaxaccel', 90.0)
+        ])  # deg/s^2
+        
+        # IK/FK wrappers
+        ik_func = lambda x, y, z, mu: [angle * 180.0/np.pi for angle in inverse_kinematics(x, y, z, mu=mu)]
+        fk_func = lambda theta, alpha, beta, gamma: direct_kinematics(
+            theta * np.pi/180.0, alpha * np.pi/180.0, beta * np.pi/180.0, gamma * np.pi/180.0
+        )
+        
+        # Create planner instance
+        self.trajectory_planner = TrajectoryPlanner(
+            joints_max_speeds=joints_max_speeds,
+            joints_max_accel=joints_max_accel,
+            n_waypoints_input=100,
+            dt_sample=1e-3,
+            inverse_kinematics_func=ik_func,
+            forward_kinematics_func=fk_func,
+            mu_func=ChessEngine.mu_func,
+            gripper_actions=[],  # Will be set when planning
+            adaptive_sampling=False
+        )
+    
     def _setup_chess_widget(self):
         """Setup the chess board widget and embed it in chessWidget"""
         # Create the chess widget with default orientation (white at bottom)
@@ -1090,7 +1355,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Initialize chess manager with the widget
         try:
             self.chess_manager = ChessManager(self.chess_board)
-            print(f"[GUI] ChessManager initialized successfully: {self.chess_manager}")
         except Exception as e:
             print(f"[GUI] ERROR initializing ChessManager: {e}")
             import traceback
@@ -1290,23 +1554,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _on_board_state_ready(self, board_state):
         """Handle new board state from detector."""
         # board_state is 8x8 matrix of (class_label, confidence) tuples
-        print(f"Board state received from detector")
-        
-        # Debug: print first row to see format
-        if board_state and len(board_state) > 0:
-            print(f"First row sample: {board_state[0][:3]}")  # Print first 3 squares
         
         # Pass to chess manager for validation
         if self.chess_manager:
-            print("Passing to chess manager...")
             validated = self.chess_manager.process_detected_state(board_state)
             if validated:
-                print(f"✓ Board updated! FEN: {self.chess_manager.get_fen()}")
-                
                 # Check if this is robot's move being verified or user's move
                 if self.verifying_robot_move:
                     # Robot's move verified, now it's user's turn
-                    print("[Chess] Robot move verified! Now user's turn.")
+                    print("[Chess] Robot move verified! User's turn.")
                     self.verifying_robot_move = False
                     # Detection continues normally for user's turn
                 elif self.currently_playing_chess and self.chess_engine and not self.waiting_for_arduino:
@@ -1318,10 +1574,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     
                     # Update chess engine board and execute robot move
                     self._execute_robot_move()
-            else:
-                print("✗ Move validation failed")
-        else:
-            print("ERROR: chess_manager is None!")
     
     def _on_detector_error(self, error_msg):
         """Handle detector error."""
@@ -2115,21 +2367,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._reset_sliders_to_defaults()
     
     def _on_home_command(self):
-        """Send home command: it0a0b0 and reset all sliders to default values"""
+        """Send home command: it0a0b0 by setting targets on ring sliders"""
         if not self.serial_connection or not self.serial_connection.is_open:
             print("Not connected to Arduino")
             return
         
-        try:
-            command = "it0a0b0\n"
-            self.serial_connection.write(command.encode())
-            print(f"Sent: {command.strip()}")
-            
-            # Reset all sliders to default values
-            self._reset_sliders_to_defaults()
-        except serial.SerialException as e:
-            print(f"Serial error: {e}")
-            self._on_disconnect_com()
+        # Set targets to home position (0, 0, 0) - this triggers the command via valueChanged
+        self.theta_slider.setTargetValue(0)
+        self.alpha_slider.setTargetValue(0)
+        self.beta_slider.setTargetValue(0)
+        
+        print("Home targets set: θ=0° α=0° β=0°")
     
     def _reset_sliders_to_defaults(self):
         """Reset all sliders to their default values from params.json"""
@@ -2152,14 +2400,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Reset ring sliders (theta, alpha, beta)
         self.theta_slider.blockSignals(True)
         self.theta_slider.setValue(0)
+        self.theta_slider.clearTarget()
         self.theta_slider.blockSignals(False)
         
         self.alpha_slider.blockSignals(True)
         self.alpha_slider.setValue(0)
+        self.alpha_slider.clearTarget()
         self.alpha_slider.blockSignals(False)
         
         self.beta_slider.blockSignals(True)
         self.beta_slider.setValue(0)
+        self.beta_slider.clearTarget()
         self.beta_slider.blockSignals(False)
         
         # Reset mu slider and line edit
@@ -2198,13 +2449,33 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def _on_ring_slider_changed(self, slider_name, value):
         """Handle ring slider changes with debouncing"""
-        # Store the pending value
+        # Store the pending value for the changed slider
         if slider_name == 'theta':
             self.pending_theta = value
         elif slider_name == 'alpha':
             self.pending_alpha = value
         elif slider_name == 'beta':
             self.pending_beta = value
+        
+        # Update pending values for other sliders based on their targets
+        # This ensures all three sliders' targets are sent together
+        if slider_name != 'theta':
+            if self.theta_slider.targetValue() is not None:
+                self.pending_theta = self.theta_slider.targetValue()
+            elif self.pending_theta is None:
+                self.pending_theta = self.theta_slider.value()
+        
+        if slider_name != 'alpha':
+            if self.alpha_slider.targetValue() is not None:
+                self.pending_alpha = self.alpha_slider.targetValue()
+            elif self.pending_alpha is None:
+                self.pending_alpha = self.alpha_slider.value()
+        
+        if slider_name != 'beta':
+            if self.beta_slider.targetValue() is not None:
+                self.pending_beta = self.beta_slider.targetValue()
+            elif self.pending_beta is None:
+                self.pending_beta = self.beta_slider.value()
         
         # Restart the debounce timer (single-shot)
         self.command_debounce_timer.start()
@@ -2214,10 +2485,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if not self.serial_connection or not self.serial_connection.is_open:
             return
         
-        # Get current values from sliders (use pending if set, otherwise current)
-        theta = self.pending_theta if self.pending_theta is not None else self.theta_slider.value()
-        alpha = self.pending_alpha if self.pending_alpha is not None else self.alpha_slider.value()
-        beta = self.pending_beta if self.pending_beta is not None else self.beta_slider.value()
+        # Get values to send: use pending if set, otherwise use target (green knob), 
+        # and only fall back to current value (blue knob) if no target is set
+        if self.pending_theta is not None:
+            theta = self.pending_theta
+        elif self.theta_slider.targetValue() is not None:
+            theta = self.theta_slider.targetValue()
+        else:
+            theta = self.theta_slider.value()
+        
+        if self.pending_alpha is not None:
+            alpha = self.pending_alpha
+        elif self.alpha_slider.targetValue() is not None:
+            alpha = self.alpha_slider.targetValue()
+        else:
+            alpha = self.alpha_slider.value()
+        
+        if self.pending_beta is not None:
+            beta = self.pending_beta
+        elif self.beta_slider.targetValue() is not None:
+            beta = self.beta_slider.targetValue()
+        else:
+            beta = self.beta_slider.value()
         
         # Format command: 'it<theta>a<alpha>b<beta>'
         command = f"it{theta:.2f}a{alpha:.2f}b{beta:.2f}\n"
@@ -2396,6 +2685,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     if line:
                         self._parse_feedback(line)
         except (serial.SerialException, UnicodeDecodeError) as e:
+            # Check if this is a disconnection error (ClearCommError/PermissionError)
+            if isinstance(e, serial.SerialException):
+                error_msg = str(e)
+                if 'ClearCommError' in error_msg or 'PermissionError' in error_msg or 'device does not recognize' in error_msg:
+                    print(f"Serial device disconnected: {e}")
+                    # Automatically disconnect
+                    self._on_disconnect_com()
+                    return
             print(f"Serial read error: {e}")
     
     def _parse_feedback(self, line):
@@ -2444,9 +2741,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 # Store current alpha for mu/gamma conversion
                 self.current_alpha = alpha
                 
+                # Convert theta to 0-360 degree range for slider
+                # Arduino may send theta in -180 to 180 range, convert to 0-360
+                theta_360 = theta % 360
+                if theta_360 < 0:
+                    theta_360 += 360
+                
                 # Update ring sliders with received values
                 self.theta_slider.blockSignals(True)
-                self.theta_slider.setValue(theta)
+                self.theta_slider.setValue(theta_360)
                 self.theta_slider.blockSignals(False)
                 
                 self.alpha_slider.blockSignals(True)
@@ -2457,10 +2760,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.beta_slider.setValue(beta)
                 self.beta_slider.blockSignals(False)
                 
-                # Update pending values to match current state (prevent old values being sent)
-                self.pending_theta = theta
-                self.pending_alpha = alpha
-                self.pending_beta = beta
+                # Update prohibited zones based on feedback values
+                self._update_alpha_prohibited_zone()
+                self._update_beta_prohibited_zone()
+                
+                # Clear targets if robot has reached them (within 1 degree tolerance)
+                if self.theta_slider.targetValue() is not None:
+                    if abs(self.theta_slider.targetValue() - theta_360) < 1.0:
+                        self.theta_slider.clearTarget()
+                
+                if self.alpha_slider.targetValue() is not None:
+                    if abs(self.alpha_slider.targetValue() - alpha) < 1.0:
+                        self.alpha_slider.clearTarget()
+                
+                if self.beta_slider.targetValue() is not None:
+                    if abs(self.beta_slider.targetValue() - beta) < 1.0:
+                        self.beta_slider.clearTarget()
                 
                 # Update gamma slider and internal state if received
                 if gamma is not None:
@@ -2468,7 +2783,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.gamma_slider.blockSignals(True)
                     self.gamma_slider.setValue(int(gamma))
                     self.gamma_slider.blockSignals(False)
-                    self.pending_gamma = gamma
                 
                 # Update gripper slider if received
                 if gripper is not None:
@@ -2524,7 +2838,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 
                 # Update 3D viewer with actual positions from Arduino
                 if self.robot_viewer:
-                    self.robot_viewer.set_theta(theta)
+                    self.robot_viewer.set_theta(theta_360)
                     self.robot_viewer.set_alpha(alpha)
                     self.robot_viewer.set_beta(beta)
                     self.robot_viewer.set_mu(self.current_mu)
@@ -2535,7 +2849,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         gripper_mapped = (gripper / 180.0) * 85.0
                         self.robot_viewer.set_gripper(gripper_mapped)
                 
-                print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° γ={gamma if gamma else 'N/A'}° grip={gripper if gripper else 'N/A'}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")
+                # print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° γ={gamma if gamma is not None else 'N/A'}° grip={gripper if gripper is not None else 'N/A'}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")
         except (ValueError, IndexError) as e:
             print(f"Parse error: {e} - Line: {line}")
     
@@ -2684,38 +2998,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"[Chess] Duration: {trajectory_data['T_duration']}s")
             print(f"[Chess] Gripper actions: {trajectory_data['gripper_actions']}")
             
-            # Setup trajectory planner
-            joints_max_speeds = np.array([30.0, 15.0, 15.0])  # deg/s
-            joints_max_accel = np.array([20.0, 10.0, 10.0])   # deg/s^2
+            # Update planner's gripper actions for this move
+            self.trajectory_planner.gripper_actions = trajectory_data['gripper_actions']
             
-            # IK/FK wrappers
-            ik_func = lambda x, y, z, mu: [angle * 180.0/np.pi for angle in inverse_kinematics(x, y, z, mu=mu)]
-            fk_func = lambda theta, alpha, beta, gamma: direct_kinematics(
-                theta * np.pi/180.0, alpha * np.pi/180.0, beta * np.pi/180.0, gamma * np.pi/180.0
-            )
-            
-            # Create planner
-            planner = TrajectoryPlanner(
-                joints_max_speeds=joints_max_speeds,
-                joints_max_accel=joints_max_accel,
-                n_waypoints_input=100,
-                dt_sample=1e-3,
-                inverse_kinematics_func=ik_func,
-                forward_kinematics_func=fk_func,
-                mu_func=ChessEngine.mu_func,
-                gripper_actions=trajectory_data['gripper_actions'],
-                adaptive_sampling=False
-            )
-            
-            # Plan trajectory
-            planned_waypoints = planner.plan_trajectory(
+            # Plan trajectory using the existing planner
+            planned_waypoints = self.trajectory_planner.plan_trajectory(
                 trajectory_data['trajectory_func'],
                 trajectory_data['T_duration']
             )
             
             # Generate Arduino command
-            time_us = round(planner.output_waypoint_dt * 1e6)
-            output_parts = [f"wn{planner.output_waypoint_count}d{time_us}"]
+            time_us = round(self.trajectory_planner.output_waypoint_dt * 1e6)
+            output_parts = [f"wn{self.trajectory_planner.output_waypoint_count}d{time_us}"]
             
             for waypoint in planned_waypoints:
                 theta, alpha, beta, mu, gripper = waypoint
@@ -2747,6 +3041,48 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Resume detection on error
             if self.detector_thread:
                 self.detector_thread.pause_detection = False
+    
+    def changeEvent(self, event):
+        """Handle window state changes to prevent visual freezing."""
+        if event.type() == event.Type.WindowStateChange:
+            # When restored from minimized, force window redraw by resizing
+            if not self.isMinimized() and event.oldState() & Qt.WindowState.WindowMinimized:
+                QTimer.singleShot(0, self._force_window_redraw)
+        super().changeEvent(event)
+    
+    def _force_window_redraw(self):
+        """Force Windows to redraw the frameless window by temporarily resizing."""
+        # Store original geometry
+        original_geo = self.geometry()
+        # Resize by 1 pixel
+        self.resize(original_geo.width() + 1, original_geo.height())
+        # Process events to ensure resize happens
+        QApplication.processEvents()
+        # Restore original size
+        self.resize(original_geo.width(), original_geo.height())
+        # Move to original position if it changed
+        self.move(original_geo.topLeft())
+        # Force repaint
+        self._force_repaint()
+    
+    def showEvent(self, event):
+        """Handle show event to prevent visual freezing."""
+        super().showEvent(event)
+        # Force complete repaint when window becomes visible
+        QTimer.singleShot(10, self._force_repaint)
+        QTimer.singleShot(50, self._force_repaint)
+    
+    def _force_repaint(self):
+        """Force a complete repaint of the window."""
+        self.update()
+        self.repaint()
+        # Also update all child widgets (safely handle overloaded update methods)
+        for widget in self.findChildren(QWidget):
+            try:
+                widget.update()
+            except TypeError:
+                # Some widgets have overloaded update() methods that require arguments
+                widget.repaint()
     
     def closeEvent(self, event):
         """Handle application close event - cleanup resources."""

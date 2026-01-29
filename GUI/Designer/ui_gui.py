@@ -2563,7 +2563,7 @@ class Ui_MainWindow(object):
         self.fileLabel.setText(QCoreApplication.translate("MainWindow", u"No file selected", None))
         self.label_17.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Position List  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"Draw", None))
-        self.chessLabel.setText(QCoreApplication.translate("MainWindow", u"Not yet connected", None))
+        self.chessLabel.setText("")
         self.chess_initializeBtn.setText(QCoreApplication.translate("MainWindow", u"Initialize", None))
         self.chess_playBtn.setText(QCoreApplication.translate("MainWindow", u"Play", None))
         self.groupBox.setTitle(QCoreApplication.translate("MainWindow", u"Chess Settings", None))

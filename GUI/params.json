@@ -1,10 +1,10 @@
 {
     "xdef": 380,
     "ydef": 0,
-    "zdef": 217,
+    "zdef": 364,
 
-    "zmin": -200,
-    "zmax": 250,
+    "zmin": 0,
+    "zmax": 400,
     
     "mumin": -90,
     "mumax": 30,
@@ -30,5 +30,14 @@
     "gammamax": 120,
     "gammadef": 0,
 
-    "diffmax" : 50
+    "diffmax" : 56,
+    "diffmin" : -62,
+
+    "thetamaxspeed" : 20,
+    "alphamaxspeed" : 15,
+    "betamaxspeed" : 15,
+
+    "thetamaxaccel" : 60,
+    "alphamaxaccel" : 20,
+    "betamaxaccel" : 20
 }

@@ -4130,7 +4130,7 @@ QListWidget::item:pressed {
                  </font>
                 </property>
                 <property name="text">
-                 <string>Not yet connected</string>
+                 <string/>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignmentFlag::AlignCenter</set>

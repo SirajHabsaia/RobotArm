@@ -4,12 +4,13 @@
 #include <math.h>
 
 void inverse_kinematics(float x, float y, float z) {
+    z -= h;
     float theta = (x != 0) ? atan2(y, x) : (y > 0 ? 1 : -1) * PI/2;
     x = sqrt(x*x + y*y);
     float goal_mu_radians = goal_mu * DEG_TO_RAD;
 
-    x +=  -L3*cos(goal_mu_radians) - L3z*sin(goal_mu_radians);
-    z +=  -L3*sin(goal_mu_radians) + L3z*cos(goal_mu_radians);
+    x +=  -L3*cos(goal_mu_radians) - L4*sin(goal_mu_radians);
+    z +=  -L3*sin(goal_mu_radians) + L4*cos(goal_mu_radians);
 
     float r = sqrt(x*x + z*z);
     float a = acos((-L2*L2 + L1*L1 + r*r)/(2*L1*r));
@@ -35,17 +36,17 @@ void direct_kinematics(float theta, float alpha, float beta) {
     float x_plane = (
         L1 * cos(q1) +
         L2 * cos(q2) +
-        L3 * cos(q3) + L3z * sin(q3)
+        L3 * cos(q3) + L4 * sin(q3)
     );
     float z_plane = (
         L1 * sin(q1) +
         L2 * sin(q2) +
-        L3 * sin(q3) - L3z * cos(q3)
+        L3 * sin(q3) - L4 * cos(q3)
     );
 
     calculated_direct[0] = x_plane * cos(theta);
     calculated_direct[1] = x_plane * sin(theta);
-    calculated_direct[2] = z_plane;
+    calculated_direct[2] = z_plane + h;
 }
 
 float mu_to_gamma(float mu) {

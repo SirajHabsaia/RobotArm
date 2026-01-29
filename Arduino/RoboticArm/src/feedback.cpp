@@ -1,11 +1,11 @@
 #include "feedback.h"
 #include "config.h"
 
-void feedback() {
-    if (!feedback_enabled || !currently_following_trajectory) return;
+void feedback(bool bypass_interval) {
+    if (!bypass_interval && (!feedback_enabled || !currently_following_trajectory)) return;
     
     current_time_micros = micros();
-    if (current_time_micros - last_feedback_time >= feedback_interval) {
+    if (bypass_interval || current_time_micros - last_feedback_time >= feedback_interval) {
         last_feedback_time = current_time_micros;
         
         // d<time>t<theta>a<alpha>b<beta>h<gamma>g<gripper>

@@ -46,11 +46,8 @@ class BoardAnalyzerConfig:
     # ArUco detection settings
     aruco_pts_movement_threshold: float = 3.0  # Minimum pixel movement to update corners
     
-    # Square extraction settings
-    square_scale: float = 0.9  # Scale factor for extracting square images
-    
     # Hand detection settings
-    hand_contour_threshold: float = 15.0  # Minimum contour density
+    hand_contour_threshold: float = 75.0  # Minimum contour density
     hand_canny_low: int = 75  # Canny edge detection lower threshold
     hand_canny_high: int = 120  # Canny edge detection higher threshold
     hand_detection_outer_margin: float = 0.1  # Outer margin as fraction of big_cropped size (e.g., 0.1 = 10%)

@@ -39,6 +39,7 @@ htmlcov/
 
 # VS Code and PlatformIO
 .vscode/
+*.code-workspace
 .pio/
 .history/
 lib/

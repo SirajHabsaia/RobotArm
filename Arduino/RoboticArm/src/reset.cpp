@@ -4,6 +4,7 @@
 #include "trajectory.h"
 
 void begin_reset() {
+    toggle_motors(true);
     for (uint8_t j = 0; j < N; j++) {
         homed[j] = false;
         homing_delay[j] = 1e6f * 360.f / (reset_speed[j] * RESOLUTION[j]); //us

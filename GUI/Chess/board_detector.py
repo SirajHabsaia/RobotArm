@@ -30,6 +30,8 @@ from PIL import Image
 from typing import Optional, Dict, Any, Tuple, List
 import time
 import os
+from functools import wraps
+from collections import defaultdict
 
 try:
     # When imported as part of GUI package
@@ -76,6 +78,31 @@ class ChessCNN(nn.Module):
 
 # ======================== BOARD DETECTOR ========================
 
+def performance_metric(func):
+    """
+    Decorator to measure function execution time for performance profiling.
+    Only active if the instance has performance_metrics enabled.
+    """
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if not getattr(self, 'performance_metrics', False):
+            # Performance tracking disabled, just call the function
+            return func(self, *args, **kwargs)
+        
+        # Measure execution time
+        start_time = time.perf_counter()
+        result = func(self, *args, **kwargs)
+        elapsed_time = time.perf_counter() - start_time
+        
+        # Record timing
+        func_name = func.__name__
+        self._perf_times[func_name].append(elapsed_time)
+        self._perf_call_counts[func_name] += 1
+        
+        return result
+    return wrapper
+
+
 class BoardDetector:
     """
     Main class for detecting chess pieces on a board using ArUco markers and CNN.
@@ -88,7 +115,7 @@ class BoardDetector:
     5. Return board state and display images
     """
     
-    def __init__(self, config: Optional[BoardAnalyzerConfig] = None, side: str = "white"):
+    def __init__(self, config: Optional[BoardAnalyzerConfig] = None, side: str = "white", performance_metrics: bool = False):
         """
         Initialize the BoardDetector.
         
@@ -97,12 +124,19 @@ class BoardDetector:
             side: Which side the user is playing from ('white' or 'black').
                   If 'white', robot arm is on black's side (top).
                   If 'black', robot arm is on white's side (bottom).
+            performance_metrics: If True, track and report performance metrics
         """
         if config is None:
             config = BoardAnalyzerConfig()
         
         self.config = config
         self.side = side.lower()  # Normalize to lowercase
+        self.performance_metrics = performance_metrics
+        
+        # Initialize performance tracking
+        if self.performance_metrics:
+            self._perf_times = defaultdict(list)  # func_name -> list of execution times
+            self._perf_call_counts = defaultdict(int)  # func_name -> call count
         
         if self.side not in ["white", "black"]:
             raise ValueError(f"side must be 'white' or 'black', got '{side}'")
@@ -127,6 +161,7 @@ class BoardDetector:
         self.cooldown_counter = 0  # Counts down from cooldown_frames to 0
         self.hand_was_detected = False  # Track if hand was detected in previous frame
         
+    @performance_metric
     def _init_model(self):
         """Initialize the CNN model for piece classification."""
         model_path = self.config.model_path
@@ -148,6 +183,7 @@ class BoardDetector:
             transforms.ToTensor()
         ])
     
+    @performance_metric
     def _init_capture(self):
         """Initialize video capture based on mode."""
         mode = self.config.mode
@@ -172,6 +208,7 @@ class BoardDetector:
         else:
             raise ValueError(f"Invalid mode: {mode}. Must be 'video', 'camera', or 'ip_camera'")
     
+    @performance_metric
     def _detect_aruco_markers(self, frame: np.ndarray) -> bool:
         """
         Detect ArUco markers and update corner points.
@@ -228,6 +265,7 @@ class BoardDetector:
         
         return True
     
+    @performance_metric
     def _get_cropped_images(self, frame: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Get perspective-corrected cropped images at original resolution.
@@ -311,6 +349,7 @@ class BoardDetector:
         
         return small_cropped, big_cropped, full_cropped
     
+    @performance_metric
     def _detect_hand_in_stripe(self, big_cropped: np.ndarray, full_cropped: np.ndarray) -> Tuple[bool, np.ndarray, float]:
         """
         Detect if a hand is present in the stripe between full_cropped and big_cropped.
@@ -389,6 +428,7 @@ class BoardDetector:
         
         return hand_detected, contour_image, total_contour_length
     
+    @performance_metric
     def _extract_squares(self, small_cropped: np.ndarray) -> List[Tuple[int, int, np.ndarray]]:
         """
         Extract 64 squares from the chess board.
@@ -440,6 +480,7 @@ class BoardDetector:
         
         return squares
     
+    @performance_metric
     def _classify_square(self, square_image: np.ndarray) -> Tuple[str, float]:
         """
         Classify a square using the CNN model.
@@ -473,9 +514,17 @@ class BoardDetector:
         
         return predicted_class, confidence
     
+    @performance_metric
     def _analyze_board(self, small_cropped: np.ndarray) -> Dict[str, Any]:
         """
         Analyze all 64 squares and return board state.
+        
+        Maximum performance batch inference:
+        - Single resize to 800x800 (100px per square)
+        - BGR→RGB conversion on full board
+        - Direct numpy→tensor conversion
+        - Tensor slicing to extract 64 squares
+        - Single batch forward pass
         
         Args:
             small_cropped: Chess board image (any resolution, square)
@@ -485,8 +534,6 @@ class BoardDetector:
             - board_state: 8x8 list of (class, confidence) tuples
             - display_image: small_cropped with predictions overlaid
         """
-        squares = self._extract_squares(small_cropped)
-        
         # Initialize board state (8x8 grid)
         board_state = [[None for _ in range(8)] for _ in range(8)]
         
@@ -495,37 +542,70 @@ class BoardDetector:
         
         # Get board size for text placement
         board_size = small_cropped.shape[0]
-        square_size = board_size / 8.0
+        square_size_display = board_size / 8.0
         
-        # Classify each square
-        for row, col, square_image in squares:
-            class_label, confidence = self._classify_square(square_image)
-            board_state[row][col] = (class_label, confidence)
-            
-            # Draw prediction on display image
-            # Calculate center of square for text placement
-            center_x = int(col * square_size + square_size / 2)
-            center_y = int(row * square_size + square_size / 2)
-            
-            # Format text: first letter + confidence
-            letter = class_label[0].upper()  # 'E', 'W', or 'B'
-            conf_str = f"{confidence:.{self.config.display_confidence_decimals}f}"
-            text = f"{letter}:{conf_str}"
-            
-            # Draw text
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            # Scale font based on square size
-            font_scale = self.config.display_font_scale * (square_size / 100.0)
-            thickness = max(1, int(self.config.display_font_thickness * (square_size / 100.0)))
-            color = self.config.display_text_color
-            
-            # Get text size for centering
-            (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
-            text_x = center_x - text_width // 2
-            text_y = center_y + text_height // 2
-            
-            cv2.putText(display_image, text, (text_x, text_y), font, 
-                       font_scale, color, thickness, cv2.LINE_AA)
+        # MAXIMUM PERFORMANCE BATCH INFERENCE
+        # Step 1: Single resize to 800x800 (100px per square * 8)
+        board_resized = cv2.resize(small_cropped, (800, 800))
+        
+        # Step 2: BGR→RGB conversion (numpy, very fast)
+        board_rgb = cv2.cvtColor(board_resized, cv2.COLOR_BGR2RGB)
+        
+        # Step 3: Convert entire board to tensor at once (HWC → CHW format, normalize to [0,1])
+        board_tensor = torch.from_numpy(board_rgb).float().permute(2, 0, 1) / 255.0
+        # Shape: (3, 800, 800)
+        
+        # Step 4: Extract 64 squares via tensor slicing (zero-copy views)
+        batch_tensors = []
+        for row in range(8):
+            for col in range(8):
+                y1 = row * 100
+                x1 = col * 100
+                # Extract 100x100 square: (3, 100, 100)
+                square_tensor = board_tensor[:, y1:y1+100, x1:x1+100]
+                batch_tensors.append(square_tensor)
+        
+        # Step 5: Stack into batch (64, 3, 100, 100)
+        batch_input = torch.stack(batch_tensors)
+        
+        # Step 6: Run batch inference ONCE
+        with torch.no_grad():
+            batch_output = self.model(batch_input)
+            batch_probabilities = torch.softmax(batch_output, dim=1)
+            confidences, predicted_indices = torch.max(batch_probabilities, 1)
+        
+        # Step 7: Extract results and draw visualizations
+        idx = 0
+        for row in range(8):
+            for col in range(8):
+                confidence = confidences[idx].item()
+                class_label = self.config.class_names[predicted_indices[idx].item()]
+                idx += 1
+                
+                board_state[row][col] = (class_label, confidence)
+                
+                # Draw prediction on display image (original resolution)
+                center_x = int(col * square_size_display + square_size_display / 2)
+                center_y = int(row * square_size_display + square_size_display / 2)
+                
+                # Format text: first letter + confidence
+                letter = class_label[0].upper()  # 'E', 'W', or 'B'
+                conf_str = f"{confidence:.{self.config.display_confidence_decimals}f}"
+                text = f"{letter}:{conf_str}"
+                
+                # Draw text
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = self.config.display_font_scale * (square_size_display / 100.0)
+                thickness = max(1, int(self.config.display_font_thickness * (square_size_display / 100.0)))
+                color = self.config.display_text_color
+                
+                # Get text size for centering
+                (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
+                text_x = center_x - text_width // 2
+                text_y = center_y + text_height // 2
+                
+                cv2.putText(display_image, text, (text_x, text_y), font, 
+                           font_scale, color, thickness, cv2.LINE_AA)
         
         return {
             'board_state': board_state,
@@ -666,8 +746,55 @@ class BoardDetector:
                 if result is not None:
                     yield result
     
+    def _print_performance_metrics(self):
+        """Print performance metrics summary."""
+        if not self.performance_metrics or not self._perf_times:
+            return
+        
+        print("\n" + "="*70)
+        print("BOARD DETECTOR PERFORMANCE METRICS")
+        print("="*70)
+        
+        # Calculate and display metrics for each function
+        total_rows = []
+        for func_name in sorted(self._perf_times.keys()):
+            times = self._perf_times[func_name]
+            call_count = self._perf_call_counts[func_name]
+            
+            if times:
+                min_time = min(times) * 1000  # Convert to ms
+                max_time = max(times) * 1000
+                avg_time = (sum(times) / len(times)) * 1000
+                total_time = sum(times) * 1000
+                
+                total_rows.append({
+                    'name': func_name,
+                    'calls': call_count,
+                    'min': min_time,
+                    'avg': avg_time,
+                    'max': max_time,
+                    'total': total_time
+                })
+        
+        # Print header
+        print(f"{'Function':<30} {'Calls':>8} {'Min(ms)':>10} {'Avg(ms)':>10} {'Max(ms)':>10} {'Total(ms)':>12}")
+        print("-"*70)
+        
+        # Print each function's metrics
+        for row in total_rows:
+            print(f"{row['name']:<30} {row['calls']:>8} {row['min']:>10.3f} {row['avg']:>10.3f} {row['max']:>10.3f} {row['total']:>12.2f}")
+        
+        # Calculate total
+        grand_total = sum(row['total'] for row in total_rows)
+        print("-"*70)
+        print(f"{'TOTAL':<30} {'':<8} {'':<10} {'':<10} {'':<10} {grand_total:>12.2f}")
+        print("="*70 + "\n")
+    
     def release(self):
         """Release video capture resources."""
+        # Print performance metrics before releasing
+        self._print_performance_metrics()
+        
         if hasattr(self, 'cap'):
             self.cap.release()
     

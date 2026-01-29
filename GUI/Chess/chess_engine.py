@@ -45,20 +45,20 @@ class ChessEngine:
     }
     
     # Robot parameters
-    HOME_POSITION = (100.0, 0.0, -20.0)  # Default home position
+    HOME_POSITION = (100.0, 0.0, 130.0)  # Default home position
     
     # Pickup heights per piece type (in mm)
     PICKUP_HEIGHTS = {
-        chess.PAWN: -130.0,
-        chess.KNIGHT: -125.0,
-        chess.BISHOP: -120.0,
-        chess.ROOK: -125.0,
-        chess.QUEEN: -115.0,
-        chess.KING: -115.0,
+        chess.PAWN: 17.0,
+        chess.KNIGHT: 23.0,
+        chess.BISHOP: 28.0,
+        chess.ROOK: 22.0,
+        chess.QUEEN: 43.0,
+        chess.KING: 43.0,
     }
     
-    ARC_HEIGHT = -55.0  # Height of arc during piece transport
-    DISCARD_POSITION = (340.0, -250.0, -40.0)  # Where to place captured pieces
+    ARC_HEIGHT = 95.0  # Height of arc during piece transport
+    DISCARD_POSITION = (340.0, -250.0, 110.0)  # Where to place captured pieces
     
     # Trajectory timing
     T_NO_CAPTURE = 4.0  # Duration for simple move (no capture)
@@ -70,10 +70,10 @@ class ChessEngine:
     # Gripper closed angles per piece type (activation %)
     GRIPPER_CLOSED_ANGLES = {
         chess.PAWN: 88.0,
-        chess.KNIGHT: 95.0,
+        chess.KNIGHT: 100.0,
         chess.BISHOP: 85.0,
         chess.ROOK: 82.0,
-        chess.QUEEN: 78.0,
+        chess.QUEEN: 80.0,
         chess.KING: 78.0,
     }
     

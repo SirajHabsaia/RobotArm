@@ -113,7 +113,7 @@ def generate_waypoints_for_move(move_uci: str, robot_color: chess.Color = chess.
 
 if __name__ == "__main__":
     # Example usage
-    move_uci = "g7b4"  # Change this to test different moves
+    move_uci = "a8h1"  # Change this to test different moves
     
     # You can also test captures:
     # move_uci = "e4d5"  # Capture move

@@ -10,6 +10,7 @@
 
 extern uint8_t CLK[N];
 extern uint8_t DIR[N];
+extern uint8_t EN[N];
 extern uint8_t LS[N]; extern bool inv_LS[N];
 extern float RESOLUTION[N]; // steps per revolution
 extern float max_speed[N]; // degrees per second
@@ -17,10 +18,11 @@ extern float reset_speed[N]; // degrees per second
 extern float acceleration[N]; // degrees per second per second
 extern bool inv_dir[N]; // invert direction flags
 
-extern float L1;
-extern float L2;
-extern float L3;
-extern float L3z;
+extern float L1; // arm 1
+extern float L2; // arm 2
+extern float L3; // gripper
+extern float L4; // gripper offset
+extern float h; // height offset
 
 // ===========================
 // DXL CONFIGURATION

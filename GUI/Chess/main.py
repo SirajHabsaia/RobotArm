@@ -31,13 +31,12 @@ def main():
     elif config.mode == "ip_camera":
         print(f"IP camera: {config.camera_ip}")
     print(f"Hand detection threshold: {config.hand_contour_threshold}")
-    print(f"Square scale: {config.square_scale}")
     print("=" * 50)
     print("\nInitializing detector...")
     
-    # Initialize detector
+    # Initialize detector with performance metrics enabled
     try:
-        detector = BoardDetector(config)
+        detector = BoardDetector(config, performance_metrics=True)
     except Exception as e:
         print(f"Error initializing detector: {e}")
         return

@@ -1,6 +1,4 @@
 #include <Arduino.h>
-
-// Include all module headers
 #include "config.h"
 #include "control.h"
 #include "kinematics.h"
@@ -16,7 +14,11 @@ void setup() {
     for (uint8_t j = 0; j < N; j++) {
         pinMode(CLK[j], OUTPUT);
         pinMode(DIR[j], OUTPUT);
+        pinMode(EN[j], OUTPUT);
+        pinMode(LS[j], INPUT_PULLUP);
+        digitalWrite(EN[0], LOW); // Enable first motor
     }
+    toggle_motors(false);
     
     Serial.println("Available commands:");
     Serial.println("Interpolation: it<theta>a<alpha>b<beta> or ix<x>y<y>z<z>");

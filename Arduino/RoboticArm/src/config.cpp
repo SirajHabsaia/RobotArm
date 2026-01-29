@@ -5,17 +5,19 @@
 // ===========================
 uint8_t CLK[N] = {8, 2, 5};
 uint8_t DIR[N] = {9, 3, 6};
+uint8_t EN[N] = {10, 4, 7};
 uint8_t LS[N] = {11, 13 , 12}; bool inv_LS[N] = {false, true, true};
 float RESOLUTION[N] = {8.f*400.f*4.f, 8.f*200.f*54.5f*1.011f, 8.f*200.f*54.5f*0.978f};
-float max_speed[N] = {30., 15., 15.};
+float max_speed[N] = {20., 15., 15.};
 float reset_speed[N] = {5., 5., 5.};
-float acceleration[N] = {50., 20., 20.};
+float acceleration[N] = {60., 20., 20.};
 bool inv_dir[N] = {false, true, false};
 
 float L1 = 250.0;
 float L2 = 200.0;
 float L3 = 180.0;
-float L3z = 33.0;
+float L4 = 36.0;
+float h = 150.0;
 
 // ===========================
 // DXL CONFIGURATION
@@ -52,7 +54,7 @@ bool homed_all = true;
 unsigned long last_homing_step[N] = {0, 0, 0};
 float homing_delay[N] = {2000, 2000, 2000};
 bool inv_dir_homing[N] = {false, true, false};
-float calibrated_angles[N] = {-2.5, -16.8,43.8+2.5};
+float calibrated_angles[N] = {-2.5, -16.8, 45.8};
 
 // ===========================
 // KINEMATICS RESULTS
@@ -73,7 +75,7 @@ bool currently_drawing_line = false;
 bool currently_interpolating = false;
 bool currently_following_planned = false;
 
-unsigned long trajectory_check_interval = 250;
+unsigned long trajectory_check_interval = 50;
 unsigned long last_trajectory_check_interval = 0;
 float difference_angle_trajectory[N] = {0.0, 0.0, 0.0};
 float trajectory_time = 10.0;

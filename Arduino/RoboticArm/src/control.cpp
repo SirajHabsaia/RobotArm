@@ -9,7 +9,13 @@ void movestep(uint8_t joint, bool direction) {
     digitalWrite(CLK[joint], LOW);
     current_step[joint] += direction ? 1 : -1;
     current_angle[joint] = (current_step[joint] * 360.0) / RESOLUTION[joint];
-    delayMicroseconds(4);
+}
+
+void toggle_motors(bool enable) {
+    // First joint excluded
+    for (uint8_t j = 1; j < N; j++) {
+        digitalWrite(EN[j], !enable);
+    }
 }
 
 void move_gamma(float target_angle, int speed) {

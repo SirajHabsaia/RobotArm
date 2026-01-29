@@ -6,6 +6,9 @@
 // Move a single stepper motor one step
 void movestep(uint8_t joint, bool direction);
 
+// Toggle enable pins for motors
+void toggle_motors(bool enable);
+
 // Move Mx28 (gamma)
 void move_gamma(float target_angle, int speed);
 

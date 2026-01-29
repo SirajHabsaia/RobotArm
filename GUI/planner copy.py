@@ -61,61 +61,136 @@ class TrajectoryPlanner:
         self.gripper_dense = None
         
     def plan_trajectory(self, 
-                       trajectory_func: Callable,
-                       T_duration: float,
-                       gripper_actions: Optional[Dict[float, float]] = None) -> List[Tuple[float, ...]]:
+                       trajectory_func: Optional[Callable] = None,
+                       T_duration: Optional[float] = None,
+                       gripper_actions: Optional[Dict[float, float]] = None,
+                       waypoint_list: Optional[List[List[float]]] = None,
+                       use_waypoint_list: bool = False) -> List[Tuple[float, ...]]:
         """
         Plan time-optimal trajectory with gripper control.
         
+        Supports two input modes:
+        1. Trajectory function mode (default): Samples from continuous trajectory function
+        2. Waypoint list mode: Creates linear interpolation in Cartesian space from waypoints,
+           then samples from this interpolation before converting to joint angles
+        
         Args:
-            trajectory_func: Function f(t) -> [x, y, z] returning Cartesian coordinates
-            T_duration: Duration of input trajectory
-            gripper_actions: Optional dict mapping times to gripper angles (overrides init value)
+            trajectory_func: Function f(t) -> [x, y, z] returning Cartesian coordinates (required if use_waypoint_list=False)
+            T_duration: Duration of input trajectory (required if use_waypoint_list=False)
+            gripper_actions: Dict mapping times to gripper angles. 
+                            - In trajectory mode: keys are time values in [0, T_duration]
+                            - In waypoint list mode: keys are normalized times in [0, 1]
+            waypoint_list: List of [x, y, z] waypoints (required if use_waypoint_list=True)
+            use_waypoint_list: If True, use waypoint_list with linear interpolation; if False, use trajectory_func (default: False)
             
         Returns:
             List of waypoints: (theta, alpha, beta, mu, gripper)
         """
         if gripper_actions is None:
             gripper_actions = self.gripper_actions
-            
-        # Sample waypoints from original trajectory (adaptive or uniform)
-        if self.adaptive_sampling:
-            # Sample trajectory densely to compute acceleration
-            n_dense_samples = max(1000, self.n_waypoints_input * 10)
-            t_dense_sample = np.linspace(0, T_duration, n_dense_samples)
-            traj_dense = np.array([trajectory_func(t) for t in t_dense_sample])
-            
-            # Compute numerical derivatives
-            dt = T_duration / (n_dense_samples - 1)
-            velocity = np.gradient(traj_dense, dt, axis=0)
-            acceleration = np.gradient(velocity, dt, axis=0)
-            
-            # Compute acceleration magnitude (plus small constant to avoid zeros)
-            accel_mag = np.linalg.norm(acceleration, axis=1) + 1e-6
-            
-            # Create cumulative distribution for sampling (higher weight where acceleration is high)
-            sampling_weight = accel_mag ** 0.6
-            cumulative_weight = np.cumsum(sampling_weight)
-            cumulative_weight = cumulative_weight / cumulative_weight[-1]  # Normalize to [0, 1]
-            
-            # Sample waypoint times from this distribution
-            uniform_samples = np.linspace(0, 1, self.n_waypoints_input)
-            t_waypoints = np.interp(uniform_samples, cumulative_weight, t_dense_sample)
-            
-            # Always include start and end points
-            t_waypoints[0] = 0.0
-            t_waypoints[-1] = T_duration
-            
-            if self.verbose_logging:
-                print(f"Adaptive sampling: {self.n_waypoints_input} waypoints based on acceleration magnitude")
-        else:
-            # Uniform time sampling
-            t_waypoints = np.linspace(0, T_duration, self.n_waypoints_input)
-            if self.verbose_logging:
-                print(f"Uniform sampling: {self.n_waypoints_input} waypoints evenly spaced in time")
         
-        self.t_waypoints_input = t_waypoints
-        cartesian_waypoints = np.array([trajectory_func(t) for t in t_waypoints])
+        # Validate inputs based on mode
+        if use_waypoint_list:
+            if waypoint_list is None:
+                raise ValueError("waypoint_list must be provided when use_waypoint_list=True")
+            
+            # Create linear interpolation in Cartesian space from waypoint list
+            input_waypoints = np.array(waypoint_list)
+            n_input_waypoints = len(input_waypoints)
+            
+            if self.verbose_logging:
+                print(f"Waypoint list mode: Creating Cartesian interpolation from {n_input_waypoints} input waypoints")
+            
+            # Create normalized parameter for waypoints (0 to 1)
+            waypoint_params = np.linspace(0, 1, n_input_waypoints)
+            
+            # Create linear interpolation functions for x, y, z
+            from scipy.interpolate import interp1d
+            interp_x = interp1d(waypoint_params, input_waypoints[:, 0], kind='linear')
+            interp_y = interp1d(waypoint_params, input_waypoints[:, 1], kind='linear')
+            interp_z = interp1d(waypoint_params, input_waypoints[:, 2], kind='linear')
+            
+            # Create trajectory function from interpolation
+            def interpolated_trajectory(t):
+                """Linear interpolation through waypoints in Cartesian space."""
+                # t is normalized parameter [0, 1]
+                return [interp_x(t), interp_y(t), interp_z(t)]
+            
+            # Now sample from this interpolated trajectory (uniform sampling)
+            # Use uniform sampling since linear interpolation doesn't have acceleration patterns
+            t_waypoints = np.linspace(0, 1, self.n_waypoints_input)
+            cartesian_waypoints = np.array([interpolated_trajectory(t) for t in t_waypoints])
+            
+            # Store for plotting and gripper mapping
+            self.t_waypoints_input = t_waypoints
+            self.interpolated_trajectory_func = interpolated_trajectory
+            self.T_interpolation = 1.0  # Normalized duration
+            
+            # Map gripper actions from waypoint indices to normalized time
+            if gripper_actions:
+                gripper_actions_mapped = {}
+                for waypoint_idx, gripper_angle in gripper_actions.items():
+                    if 0 <= waypoint_idx < n_input_waypoints:
+                        # Convert waypoint index to normalized time parameter
+                        t_normalized = waypoint_params[int(waypoint_idx)]
+                        gripper_actions_mapped[t_normalized] = gripper_angle
+                        if self.verbose_logging:
+                            print(f"Gripper action {gripper_angle}° at input waypoint {waypoint_idx} → t={t_normalized:.4f}")
+                gripper_actions = gripper_actions_mapped
+            
+            if self.verbose_logging:
+                print(f"Sampling {self.n_waypoints_input} waypoints from Cartesian interpolation")
+        else:
+            if trajectory_func is None or T_duration is None:
+                raise ValueError("trajectory_func and T_duration must be provided when use_waypoint_list=False")
+            
+            # Sample waypoints from original trajectory (adaptive or uniform)
+            # Sample waypoints from original trajectory (adaptive or uniform)
+            if self.adaptive_sampling:
+                # Sample trajectory densely to compute acceleration
+                n_dense_samples = max(1000, self.n_waypoints_input * 10)
+                t_dense_sample = np.linspace(0, T_duration, n_dense_samples)
+                traj_dense = np.array([trajectory_func(t) for t in t_dense_sample])
+                
+                # Compute numerical derivatives
+                dt = T_duration / (n_dense_samples - 1)
+                velocity = np.gradient(traj_dense, dt, axis=0)
+                acceleration = np.gradient(velocity, dt, axis=0)
+                
+                # Compute acceleration magnitude (plus small constant to avoid zeros)
+                accel_mag = np.linalg.norm(acceleration, axis=1) + 1e-6
+                
+                # Create cumulative distribution for sampling (higher weight where acceleration is high)
+                sampling_weight = accel_mag ** 0.6
+                cumulative_weight = np.cumsum(sampling_weight)
+                cumulative_weight = cumulative_weight / cumulative_weight[-1]  # Normalize to [0, 1]
+                
+                # Sample waypoint times from this distribution
+                uniform_samples = np.linspace(0, 1, self.n_waypoints_input)
+                t_waypoints = np.interp(uniform_samples, cumulative_weight, t_dense_sample)
+                
+                # Always include start and end points
+                t_waypoints[0] = 0.0
+                t_waypoints[-1] = T_duration
+                
+                if self.verbose_logging:
+                    print(f"Adaptive sampling: {self.n_waypoints_input} waypoints based on acceleration magnitude")
+            else:
+                # Uniform time sampling
+                t_waypoints = np.linspace(0, T_duration, self.n_waypoints_input)
+                if self.verbose_logging:
+                    print(f"Uniform sampling: {self.n_waypoints_input} waypoints evenly spaced in time")
+            
+            self.t_waypoints_input = t_waypoints
+            cartesian_waypoints = np.array([trajectory_func(t) for t in t_waypoints])
+            
+            # Store trajectory function for plotting
+            self.interpolated_trajectory_func = None
+            self.T_interpolation = None
+        
+        # Store input mode information for plotting
+        self.use_waypoint_list_mode = use_waypoint_list
+        self.input_cartesian_waypoints = np.array(waypoint_list) if use_waypoint_list else None
         
         # Apply inverse kinematics and compute mu for each waypoint
         joint_waypoints = []
@@ -136,13 +211,17 @@ class TrajectoryPlanner:
         # Map gripper actions to path parameter s
         gripper_s_map = {}  # Maps path parameter s to gripper angle
         if gripper_actions:
+            # Both modes now use time-based gripper actions (normalized time for waypoint list mode)
+            # Get the appropriate time duration
+            time_duration = self.T_interpolation if use_waypoint_list else T_duration
+            
             for t_action, gripper_angle in gripper_actions.items():
-                if t_action < 0 or t_action > T_duration:
+                if t_action < 0 or t_action > time_duration:
                     if self.verbose_logging:
-                        print(f"Warning: GGripper action at t={t_action} outside trajectory duration")
+                        print(f"Warning: Gripper action at t={t_action} outside trajectory duration")
                     continue
                 # Convert time to path parameter s using linear interpolation
-                s_action = np.interp(t_action, t_waypoints, ss)
+                s_action = np.interp(t_action, self.t_waypoints_input, ss)
                 gripper_s_map[s_action] = gripper_angle
                 if self.verbose_logging:
                     print(f"Gripper action {gripper_angle}° mapped to path parameter s={s_action:.4f} (t_orig={t_action:.3f}s)")
@@ -253,8 +332,8 @@ class TrajectoryPlanner:
         """Plot planned trajectory results.
         
         Args:
-            trajectory_func: Original trajectory function f(t) -> [x, y, z]
-            T_duration: Duration of original trajectory
+            trajectory_func: Original trajectory function f(t) -> [x, y, z] (only used in trajectory mode)
+            T_duration: Duration of original trajectory (only used in trajectory mode)
         """
         if self.q_dense is None:
             raise ValueError("No trajectory planned yet. Call plan_trajectory() first.")
@@ -262,12 +341,16 @@ class TrajectoryPlanner:
         joints_names = ['theta', 'alpha', 'beta']
         cartesian_labels = ['x', 'y', 'z']
         
+        # Determine if we have input data to plot
+        has_trajectory_input = (trajectory_func is not None and T_duration is not None)
+        has_waypoint_input = (self.use_waypoint_list_mode and self.input_cartesian_waypoints is not None)
+        
         # Create figure with 4 columns, 3 rows (theta, alpha, beta only)
         fig, axes = plt.subplots(3, 4, figsize=(20, 10))
         
         for j in range(3):  # Only theta, alpha, beta (not mu)
-            # Column 0: Original Cartesian trajectory
-            if trajectory_func is not None and T_duration is not None:
+            # Column 0: Original Cartesian trajectory or waypoints
+            if has_trajectory_input:
                 t_theory = np.linspace(0, T_duration, 501)
                 cartesian_theory = np.array([trajectory_func(t) for t in t_theory])
                 cartesian_waypoints = np.array([trajectory_func(t) for t in self.t_waypoints_input])
@@ -283,13 +366,41 @@ class TrajectoryPlanner:
                 axes[j, 0].set_ylabel(f"{cartesian_labels[j]} (mm)")
                 if j == 0 and self.gripper_actions:
                     axes[j, 0].legend(loc='best')
+            elif has_waypoint_input:
+                # Plot interpolated trajectory with original waypoints
+                if self.interpolated_trajectory_func is not None:
+                    # Plot smooth interpolation
+                    t_interp = np.linspace(0, 1, 501)
+                    cartesian_interp = np.array([self.interpolated_trajectory_func(t) for t in t_interp])
+                    axes[j, 0].plot(t_interp, cartesian_interp[:, j], 'b-', linewidth=1.5, label='Interpolation')
+                    
+                    # Plot sampled waypoints
+                    cartesian_waypoints = np.array([self.interpolated_trajectory_func(t) for t in self.t_waypoints_input])
+                    axes[j, 0].scatter(self.t_waypoints_input, cartesian_waypoints[:, j], color='r', s=5, label='Sampled')
+                    
+                    # Plot original input waypoints as larger markers
+                    n_input = len(self.input_cartesian_waypoints)
+                    waypoint_params = np.linspace(0, 1, n_input)
+                    axes[j, 0].scatter(waypoint_params, self.input_cartesian_waypoints[:, j], color='orange', s=30, marker='s', zorder=10, label='Input WPs')
+                    
+                    # Plot gripper actions as green dots
+                    if self.gripper_actions:
+                        for t_action, gripper_angle in self.gripper_actions.items():
+                            gripper_pos = self.interpolated_trajectory_func(t_action)[j]
+                            axes[j, 0].scatter(t_action, gripper_pos, color='green', s=50, marker='o', zorder=10, label='Gripper' if (j == 0 and t_action == list(self.gripper_actions.keys())[0]) else '')
+                    
+                    axes[j, 0].set_title(f"{cartesian_labels[j]} Cartesian Interpolation")
+                    axes[j, 0].set_ylabel(f"{cartesian_labels[j]} (mm)")
+                    axes[j, 0].set_xlabel("Normalized Time")
+                    if j == 0:
+                        axes[j, 0].legend(loc='best', fontsize=8)
             else:
                 axes[j, 0].set_title(f"Cartesian {cartesian_labels[j]} (N/A)")
                 axes[j, 0].text(0.5, 0.5, 'No data', ha='center', va='center', 
                                transform=axes[j, 0].transAxes)
             
             # Column 1: Original joint trajectory (after IK)
-            if trajectory_func is not None and T_duration is not None and self.inverse_kinematics is not None:
+            if has_trajectory_input and self.inverse_kinematics is not None:
                 t_theory = np.linspace(0, T_duration, 501)
                 cartesian_theory = np.array([trajectory_func(t) for t in t_theory])
                 cartesian_waypoints = np.array([trajectory_func(t) for t in self.t_waypoints_input])
@@ -325,6 +436,55 @@ class TrajectoryPlanner:
                 axes[j, 1].set_ylabel(f"{joints_names[j]} (deg)")
                 if j == 0 and self.gripper_actions:
                     axes[j, 1].legend(loc='best')
+            elif has_waypoint_input and self.inverse_kinematics is not None:
+                # Apply IK to interpolated trajectory
+                if self.interpolated_trajectory_func is not None:
+                    # Plot smooth joint trajectory from interpolation
+                    t_interp = np.linspace(0, 1, 501)
+                    joint_interp = []
+                    for t in t_interp:
+                        cart_pos = self.interpolated_trajectory_func(t)
+                        mu = self.mu_func(cart_pos[0], cart_pos[1], cart_pos[2])
+                        joints = self.inverse_kinematics(cart_pos[0], cart_pos[1], cart_pos[2], mu)
+                        joint_interp.append(joints[:3])
+                    joint_interp = np.array(joint_interp)
+                    
+                    axes[j, 1].plot(t_interp, joint_interp[:, j], 'g-', linewidth=1.5, label='Interpolation')
+                    
+                    # Plot sampled waypoints
+                    joint_sampled = []
+                    for t in self.t_waypoints_input:
+                        cart_pos = self.interpolated_trajectory_func(t)
+                        mu = self.mu_func(cart_pos[0], cart_pos[1], cart_pos[2])
+                        joints = self.inverse_kinematics(cart_pos[0], cart_pos[1], cart_pos[2], mu)
+                        joint_sampled.append(joints[:3])
+                    joint_sampled = np.array(joint_sampled)
+                    axes[j, 1].scatter(self.t_waypoints_input, joint_sampled[:, j], color='r', s=5, label='Sampled')
+                    
+                    # Plot original input waypoints
+                    joint_input = []
+                    n_input = len(self.input_cartesian_waypoints)
+                    waypoint_params = np.linspace(0, 1, n_input)
+                    for pos in self.input_cartesian_waypoints:
+                        mu = self.mu_func(pos[0], pos[1], pos[2])
+                        joints = self.inverse_kinematics(pos[0], pos[1], pos[2], mu)
+                        joint_input.append(joints[:3])
+                    joint_input = np.array(joint_input)
+                    axes[j, 1].scatter(waypoint_params, joint_input[:, j], color='orange', s=30, marker='s', zorder=10, label='Input WPs')
+                    
+                    # Plot gripper actions
+                    if self.gripper_actions:
+                        for t_action, gripper_angle in self.gripper_actions.items():
+                            cart_pos = self.interpolated_trajectory_func(t_action)
+                            mu = self.mu_func(cart_pos[0], cart_pos[1], cart_pos[2])
+                            joints = self.inverse_kinematics(cart_pos[0], cart_pos[1], cart_pos[2], mu)
+                            axes[j, 1].scatter(t_action, joints[j], color='green', s=50, marker='o', zorder=10, label='Gripper' if (j == 0 and t_action == list(self.gripper_actions.keys())[0]) else '')
+                    
+                    axes[j, 1].set_title(f"{joints_names[j]} Interpolated (IK)")
+                    axes[j, 1].set_ylabel(f"{joints_names[j]} (deg)")
+                    axes[j, 1].set_xlabel("Normalized Time")
+                    if j == 0:
+                        axes[j, 1].legend(loc='best', fontsize=8)
             else:
                 axes[j, 1].set_title(f"{joints_names[j]} original (N/A)")
             
@@ -554,13 +714,13 @@ if __name__ == "__main__":
     # gripper_actions = None
 
     # Cool curve
-    trajectory_func = lambda t: [
-        400+40.0 * np.sin(5.0 * 2*np.pi*t),
-        50.0 * np.cos(3.0 * 2*np.pi*t),
-        15
-    ]
-    T_duration = 1.0
-    gripper_actions = None
+    # trajectory_func = lambda t: [
+    #     400+40.0 * np.sin(5.0 * 2*np.pi*t),
+    #     50.0 * np.cos(3.0 * 2*np.pi*t),
+    #     20
+    # ]
+    # T_duration = 1.0
+    # gripper_actions = None
     
     # trajectory_func = lambda t: pick_and_place_no_existing(t,
     #                                                        xi=100, yi=0, zi=-20, 
@@ -575,6 +735,30 @@ if __name__ == "__main__":
     #                                                          xg=470, yg=-132, zm=-50, n=3)
     # T_duration = 6.0
     # gripper_actions = gripper_actions_with_existing
+
+    #define waypoints
+    waypoints = [
+        [499.7, 56.5, 20],
+        [482.9, 16.2, 20],
+        [440.6, 13.2, 20],
+        [472.9, -13.8, 20],
+        [463.2, -56.2, 20],
+        [499.7, -33.5, 20],
+        [536.5, -56.2, 20],
+        [526.5, -14.7, 20],
+        [559.1, 12.9, 20],
+        [557.1, 14.1, 20],
+        [516.5, 16.8, 20],
+        [500.0, 56.5, 20]
+    ]
+    
+    # Gripper actions for waypoint list mode (using normalized time 0-1)
+    # For example, gripper action at 25% through the interpolation (between waypoints 3 and 4)
+    # and at 75% through (between waypoints 9 and 10)
+    gripper_actions_waypoint_mode = {
+        0.25: 82.0,  # Close gripper at 25% through trajectory
+        0.75: 40.0   # Open gripper at 75% through trajectory
+    }
     
     # ========================================================================
     # RUN TRAJECTORY PLANNER
@@ -590,7 +774,7 @@ if __name__ == "__main__":
         forward_kinematics_func=fk_func,
         # mu_func=mu_func,
         mu_func = lambda x,y,z: 0,
-        gripper_actions=gripper_actions,
+        gripper_actions=None,
         adaptive_sampling=False
     )
     
@@ -598,7 +782,7 @@ if __name__ == "__main__":
     print(f"\n{'='*60}")
     print(f"Planning trajectory...")
     print(f"{'='*60}")
-    planned_waypoints = planner.plan_trajectory(trajectory_func, T_duration)
+    planned_waypoints = planner.plan_trajectory(waypoint_list=waypoints, use_waypoint_list=True)
     
     # Print Arduino command format
     print(f"\n{'='*60}")
@@ -616,5 +800,5 @@ if __name__ == "__main__":
     print(output)
     print(f"{'='*60}\n")
     
-    # Show plots
-    planner.plot_results(trajectory_func, T_duration)
+    # Show plots (no trajectory_func needed for waypoint list mode)
+    planner.plot_results()
