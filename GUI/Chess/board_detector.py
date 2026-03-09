@@ -44,32 +44,36 @@ except ImportError:
 # ======================== CNN MODEL DEFINITION ========================
 
 class ChessCNN(nn.Module):
-    """CNN model for classifying chess squares as empty, white piece, or black piece."""
+    """Lightweight CNN model for classifying chess squares (32x32 input)."""
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1),
+            # Layer 1: 32x32 -> 16x16
+            nn.Conv2d(3, 8, 3, padding=1),
+            nn.BatchNorm2d(8),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+
+            # Layer 2: 16x16 -> 8x8
+            nn.Conv2d(8, 16, 3, padding=1),
             nn.BatchNorm2d(16),
             nn.ReLU(),
             nn.MaxPool2d(2),
 
+            # Layer 3: 8x8 -> 4x4
             nn.Conv2d(16, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),
-
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
         )
 
+        # Classifier: 512 -> 32 -> 3
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64 * 12 * 12, 64),
+            nn.Linear(32 * 4 * 4, 32),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(64, 3)
+            nn.Dropout(0.2),
+            nn.Linear(32, 3)
         )
 
     def forward(self, x):
@@ -177,9 +181,9 @@ class BoardDetector:
         
         self.model.eval()
         
-        # Image preprocessing
+        # Image preprocessing (32x32 for new lightweight model)
         self.transform = transforms.Compose([
-            transforms.Resize((100, 100)),
+            transforms.Resize((32, 32)),
             transforms.ToTensor()
         ])
     
@@ -493,8 +497,8 @@ class BoardDetector:
             - class_label: One of the class names (e.g., "empty", "white", "black")
             - confidence: Confidence score (0-1)
         """
-        # Resize to model input size (100x100)
-        square_resized = cv2.resize(square_image, (100, 100))
+        # Resize to model input size (32x32)
+        square_resized = cv2.resize(square_image, (32, 32))
         
         # Convert BGR to RGB
         rgb_image = cv2.cvtColor(square_resized, cv2.COLOR_BGR2RGB)
@@ -520,7 +524,7 @@ class BoardDetector:
         Analyze all 64 squares and return board state.
         
         Maximum performance batch inference:
-        - Single resize to 800x800 (100px per square)
+        - Single resize to 256x256 (32px per square for new lightweight CNN)
         - BGR→RGB conversion on full board
         - Direct numpy→tensor conversion
         - Tensor slicing to extract 64 squares
@@ -545,27 +549,27 @@ class BoardDetector:
         square_size_display = board_size / 8.0
         
         # MAXIMUM PERFORMANCE BATCH INFERENCE
-        # Step 1: Single resize to 800x800 (100px per square * 8)
-        board_resized = cv2.resize(small_cropped, (800, 800))
+        # Step 1: Single resize to 256x256 (32px per square * 8)
+        board_resized = cv2.resize(small_cropped, (256, 256))
         
         # Step 2: BGR→RGB conversion (numpy, very fast)
         board_rgb = cv2.cvtColor(board_resized, cv2.COLOR_BGR2RGB)
         
         # Step 3: Convert entire board to tensor at once (HWC → CHW format, normalize to [0,1])
         board_tensor = torch.from_numpy(board_rgb).float().permute(2, 0, 1) / 255.0
-        # Shape: (3, 800, 800)
+        # Shape: (3, 256, 256)
         
         # Step 4: Extract 64 squares via tensor slicing (zero-copy views)
         batch_tensors = []
         for row in range(8):
             for col in range(8):
-                y1 = row * 100
-                x1 = col * 100
-                # Extract 100x100 square: (3, 100, 100)
-                square_tensor = board_tensor[:, y1:y1+100, x1:x1+100]
+                y1 = row * 32
+                x1 = col * 32
+                # Extract 32x32 square: (3, 32, 32)
+                square_tensor = board_tensor[:, y1:y1+32, x1:x1+32]
                 batch_tensors.append(square_tensor)
         
-        # Step 5: Stack into batch (64, 3, 100, 100)
+        # Step 5: Stack into batch (64, 3, 32, 32)
         batch_input = torch.stack(batch_tensors)
         
         # Step 6: Run batch inference ONCE
@@ -593,7 +597,7 @@ class BoardDetector:
                 conf_str = f"{confidence:.{self.config.display_confidence_decimals}f}"
                 text = f"{letter}:{conf_str}"
                 
-                # Draw text
+                # Draw text (scale based on display square size, not model input size)
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 font_scale = self.config.display_font_scale * (square_size_display / 100.0)
                 thickness = max(1, int(self.config.display_font_thickness * (square_size_display / 100.0)))

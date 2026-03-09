@@ -54,7 +54,7 @@ bool homed_all = true;
 unsigned long last_homing_step[N] = {0, 0, 0};
 float homing_delay[N] = {2000, 2000, 2000};
 bool inv_dir_homing[N] = {false, true, false};
-float calibrated_angles[N] = {-2.5, -16.8, 45.8};
+float calibrated_angles[N] = {-2.5, -16.8-1.0, 45.8-2.0};
 
 // ===========================
 // KINEMATICS RESULTS

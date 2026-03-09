@@ -554,14 +554,34 @@ if __name__ == "__main__":
     # gripper_actions = None
 
     # Cool curve
-    trajectory_func = lambda t: [
-        400+40.0 * np.sin(5.0 * 2*np.pi*t),
-        50.0 * np.cos(3.0 * 2*np.pi*t),
-        15
-    ]
+    # trajectory_func = lambda t: [
+    #     400+40.0 * np.sin(5.0 * 2*np.pi*t),
+    #     50.0 * np.cos(3.0 * 2*np.pi*t),
+    #     15
+    # ]
+    # T_duration = 1.0
+    # gripper_actions = None
+
+    # flower curve
+    # trajectory_func = lambda t: [
+    #     500+25*(np.cos(16*np.pi*t)+1/2*np.cos(6*np.pi*t)+1/3*np.sin(10*np.pi*t)),
+    #     25*(np.sin(16*np.pi*t)+1/2*np.sin(6*np.pi*t)+1/3*np.cos(10*np.pi*t)),
+    #     20
+    # ]
+    # T_duration = 1.0
+    # gripper_actions = None
+
+    #flower curve
+    def trajectory_func(t):
+        t*=38
+        return [
+            500+3*(11*np.cos(t)-6*np.cos(11*t/6)),
+            3*(11*np.sin(t)-6*np.sin(11*t/6)),
+            18
+        ]
     T_duration = 1.0
     gripper_actions = None
-    
+
     # trajectory_func = lambda t: pick_and_place_no_existing(t,
     #                                                        xi=100, yi=0, zi=-20, 
     #                                                        xp=203, yp=-132, zp=-125, 

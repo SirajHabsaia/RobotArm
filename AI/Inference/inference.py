@@ -7,39 +7,44 @@ from torchvision import transforms
 from PIL import Image
 
 # ------------------ CONFIG ------------------
-IMG_SIZE = 100
-MODEL_FILE = "model6.pth"  # assumes model is in the same folder
+IMG_SIZE = 32  # Updated to match new training configuration
+MODEL_FILE = "model.pth"  # assumes model is in the same folder
 CLASS_NAMES = ['black', 'empty', 'white']  # same order as training
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ------------------ MODEL DEFINITION ------------------
+# Lightweight architecture for 32x32 images
 class ChessCNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1),
+            # Layer 1: 32x32 -> 16x16
+            nn.Conv2d(3, 8, 3, padding=1),
+            nn.BatchNorm2d(8),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+
+            # Layer 2: 16x16 -> 8x8
+            nn.Conv2d(8, 16, 3, padding=1),
             nn.BatchNorm2d(16),
             nn.ReLU(),
             nn.MaxPool2d(2),
 
+            # Layer 3: 8x8 -> 4x4
             nn.Conv2d(16, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),
-
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
         )
 
+        # Classifier: 512 -> 32 -> 3
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64 * 12 * 12, 64),
+            nn.Linear(32 * 4 * 4, 32),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(64, 3)
+            nn.Dropout(0.2),
+            nn.Linear(32, 3)
         )
 
     def forward(self, x):
