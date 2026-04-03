@@ -19,30 +19,11 @@ class ChessEngine:
     for converting chess moves to robot commands.
     """
     
-    # Chess square to robot coordinate mapping
-    # Files: a=-132, h=132 (linear interpolation for b-g)
-    FILE_TO_Y = {
-        'a': -132.0,
-        'b': -132.0 + (132.0 - (-132.0)) * 1/7,
-        'c': -132.0 + (132.0 - (-132.0)) * 2/7,
-        'd': -132.0 + (132.0 - (-132.0)) * 3/7,
-        'e': -132.0 + (132.0 - (-132.0)) * 4/7,
-        'f': -132.0 + (132.0 - (-132.0)) * 5/7,
-        'g': -132.0 + (132.0 - (-132.0)) * 6/7,
-        'h': 132.0,
-    }
-    
-    # Ranks: 1=470, 8=203 (linear interpolation for 2-7)
-    RANK_TO_X = {
-        '1': 470.0,
-        '2': 470.0 + (203.0 - 470.0) * 1/7,
-        '3': 470.0 + (203.0 - 470.0) * 2/7,
-        '4': 470.0 + (203.0 - 470.0) * 3/7,
-        '5': 470.0 + (203.0 - 470.0) * 4/7,
-        '6': 470.0 + (203.0 - 470.0) * 5/7,
-        '7': 470.0 + (203.0 - 470.0) * 6/7,
-        '8': 203.0,
-    }
+    # Chess board edge anchors for coordinate interpolation
+    FILE_A_Y = -132.0
+    FILE_H_Y = 132.0
+    RANK_1_X = 470.0
+    RANK_8_X = 198.0
     
     # Robot parameters
     HOME_POSITION = (100.0, 0.0, 130.0)  # Default home position
@@ -50,7 +31,7 @@ class ChessEngine:
     # Pickup heights per piece type (in mm)
     PICKUP_HEIGHTS = {
         chess.PAWN: 17.0,
-        chess.KNIGHT: 23.0,
+        chess.KNIGHT: 20.0,
         chess.BISHOP: 28.0,
         chess.ROOK: 22.0,
         chess.QUEEN: 43.0,
@@ -69,9 +50,9 @@ class ChessEngine:
     
     # Gripper closed angles per piece type (activation %)
     GRIPPER_CLOSED_ANGLES = {
-        chess.PAWN: 88.0,
+        chess.PAWN: 90.0,
         chess.KNIGHT: 100.0,
-        chess.BISHOP: 85.0,
+        chess.BISHOP: 87.0,
         chess.ROOK: 82.0,
         chess.QUEEN: 80.0,
         chess.KING: 78.0,
@@ -83,10 +64,14 @@ class ChessEngine:
     MUMIN = -90.0  # degrees
     MUMAX = -45.0  # degrees
     
-    def __init__(self, 
+    def __init__(self,
                  stockfish_path: str,
                  robot_color: chess.Color = chess.WHITE,
-                 skill_level: int = 20):
+                 skill_level: int = 20,
+                 file_a_y: float = FILE_A_Y,
+                 file_h_y: float = FILE_H_Y,
+                 rank_1_x: float = RANK_1_X,
+                 rank_8_x: float = RANK_8_X):
         """
         Initialize chess engine.
         
@@ -94,8 +79,22 @@ class ChessEngine:
             stockfish_path: Path to Stockfish executable
             robot_color: Color the robot plays (chess.WHITE or chess.BLACK)
             skill_level: Stockfish skill level (0-20, 20 is strongest)
+            file_a_y: Robot Y coordinate for file a
+            file_h_y: Robot Y coordinate for file h
+            rank_1_x: Robot X coordinate for rank 1
+            rank_8_x: Robot X coordinate for rank 8
         """
         self.robot_color = robot_color
+
+        # Generate square mappings from configurable board-edge anchors.
+        self.file_to_y = {
+            chr(ord('a') + i): file_a_y + (file_h_y - file_a_y) * i / 7
+            for i in range(8)
+        }
+        self.rank_to_x = {
+            str(1 + i): rank_1_x + (rank_8_x - rank_1_x) * i / 7
+            for i in range(8)
+        }
         
         # Initialize Stockfish
         self.engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
@@ -155,8 +154,8 @@ class ChessEngine:
         file = square_name[0]
         rank = square_name[1]
         
-        x = self.RANK_TO_X[rank]
-        y = self.FILE_TO_Y[file]
+        x = self.rank_to_x[rank]
+        y = self.file_to_y[file]
         
         # Get piece-specific pickup height
         if piece_type is None:

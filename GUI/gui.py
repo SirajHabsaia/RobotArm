@@ -11,6 +11,8 @@ from Chess.board_detector import BoardDetector
 from Chess.config import BoardAnalyzerConfig
 from Chess.chess_manager import ChessManager
 from Chess.chess_engine import ChessEngine
+from Draw.draw_widgets import ImageDisplayWidget, PolylineDisplayWidget, LiveDrawingWidget, ManualDrawingWidget
+from Draw.poly_extract import ImageToPolylines
 from planner import TrajectoryPlanner
 import chess
 from pathlib import Path
@@ -128,6 +130,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # Setup chess detector controls
         self._setup_chess_detector_controls()
+        
+        # Setup drawing page
+        self._setup_draw_page()
 
         self.HomeBtn1.clicked.connect(lambda: self.switch_menu(0))
         self.HomeBtn2.clicked.connect(lambda: self.switch_menu(0))
@@ -1798,6 +1803,530 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if file_path:
             self._load_waypoints_from_file(file_path)
     
+    # ============================================================================
+    # DRAWING PAGE METHODS
+    # ============================================================================
+    
+    def _setup_draw_page(self):
+        """Setup the drawing page widgets and connections."""
+        # Drawing state
+        self.draw_image_path = None
+        self.draw_converter = None
+        self.draw_polylines = []  # List of polylines as numpy arrays
+        self.draw_executing = False
+        self.draw_current_polyline_index = 0
+        self.draw_plotting_active = False  # Flag to track if we should plot feedback points
+        self.draw_z_threshold = 0.0  # Z threshold for filtering drawing points
+        self.draw_point_buffer = []  # Buffer for points to be plotted
+        self.draw_manual_polylines = []  # Polylines from manual drawing (numpy arrays)
+        
+        # Timer for updating live drawing graph (200ms interval to avoid slowdown)
+        self.draw_update_timer = QTimer()
+        self.draw_update_timer.setInterval(200)  # Update every 200ms
+        self.draw_update_timer.timeout.connect(self._update_live_drawing_from_buffer)
+        self.draw_update_timer.start()  # Start timer immediately
+        
+        # Create both image and manual drawing widgets
+        self.drawImageWidget = ImageDisplayWidget()
+        self.drawImageWidget.setMinimumSize(240, 240)
+        self.drawImageWidget.setMaximumSize(240, 240)
+        
+        self.drawManualWidget = ManualDrawingWidget()
+        self.drawManualWidget.setMinimumSize(240, 240)
+        self.drawManualWidget.setMaximumSize(240, 240)
+        
+        # Get layout and replace drawMainWidget with a container
+        layout = self.drawMainWidget.parent().layout()
+        index = layout.indexOf(self.drawMainWidget)
+        layout.removeWidget(self.drawMainWidget)
+        self.drawMainWidget.deleteLater()
+        
+        # Start with ImageDisplayWidget
+        layout.insertWidget(index, self.drawImageWidget)
+        self.drawManualWidget.hide()  # Hide manual widget initially
+        
+        # Replace drawResultWidget with PolylineDisplayWidget
+        self.drawPolylineWidget = PolylineDisplayWidget()
+        
+        # Remove old widget and add new one
+        result_layout = self.drawResultWidget.parent().layout()
+        result_index = result_layout.indexOf(self.drawResultWidget)
+        result_layout.removeWidget(self.drawResultWidget)
+        self.drawResultWidget.deleteLater()
+        result_layout.insertWidget(result_index, self.drawPolylineWidget)
+        
+        # Replace drawLiveWidget with LiveDrawingWidget
+        self.drawLiveWidget_new = LiveDrawingWidget()
+        
+        # Remove old widget and add new one
+        live_layout = self.drawLiveWidget.parent().layout()
+        live_index = live_layout.indexOf(self.drawLiveWidget)
+        live_layout.removeWidget(self.drawLiveWidget)
+        self.drawLiveWidget.deleteLater()
+        live_layout.insertWidget(live_index, self.drawLiveWidget_new)
+        
+        # Setup slider ranges and default values
+        self.drawCannyLowSlider.setMinimum(0)
+        self.drawCannyLowSlider.setMaximum(255)
+        self.drawCannyLowSlider.setValue(50)
+        self.drawCannyLowLabel.setText("50")
+        
+        self.drawCannyHighSlider.setMinimum(0)
+        self.drawCannyHighSlider.setMaximum(255)
+        self.drawCannyHighSlider.setValue(150)
+        self.drawCannyHighLabel.setText("150")
+        
+        self.drawKernelSlider.setMinimum(0)
+        self.drawKernelSlider.setMaximum(15)
+        self.drawKernelSlider.setValue(3)
+        self.drawKernelSlider.setSingleStep(2)
+        self.drawKernelLabel.setText("3")
+        
+        self.drawMergeSlider.setMinimum(0)
+        self.drawMergeSlider.setMaximum(50)
+        self.drawMergeSlider.setValue(10)
+        self.drawMergeLabel.setText("10")
+        
+        # Set default values for workspace parameters
+        self.drawCenterXLineEdit.setText("400")
+        self.drawCenterYLineEdit.setText("0")
+        self.drawLengthLineEdit.setText("200")
+        
+        # Check ImagefileBtn by default
+        self.ImagefileBtn.setChecked(True)
+        
+        # Connect mode buttons
+        self.ImagefileBtn.toggled.connect(self._on_draw_mode_changed)
+        self.DrawingBtn.toggled.connect(self._on_draw_mode_changed)
+        
+        # Connect signals
+        self.drawImageWidget.image_dropped.connect(self._on_draw_image_loaded)
+        self.drawManualWidget.drawing_updated.connect(self._on_manual_drawing_updated)
+        
+        self.drawCannyLowSlider.valueChanged.connect(self._on_draw_parameter_changed)
+        self.drawCannyHighSlider.valueChanged.connect(self._on_draw_parameter_changed)
+        self.drawKernelSlider.valueChanged.connect(self._on_draw_parameter_changed)
+        self.drawMergeSlider.valueChanged.connect(self._on_draw_parameter_changed)
+        
+        self.drawCenterXLineEdit.textChanged.connect(self._on_draw_workspace_changed)
+        self.drawCenterYLineEdit.textChanged.connect(self._on_draw_workspace_changed)
+        self.drawLengthLineEdit.textChanged.connect(self._on_draw_workspace_changed)
+        
+        self.drawZLineEdit.textChanged.connect(self._on_draw_parameter_changed)
+        self.drawZLiftLineEdit.textChanged.connect(self._on_draw_parameter_changed)
+        
+        self.startDrawingBtn.clicked.connect(self._on_start_drawing)
+        self.undoDrawingBtn.clicked.connect(self._on_undo_drawing)
+        
+        print("[DrawPage] Drawing page setup complete")
+    
+    def _on_draw_mode_changed(self):
+        """Handle switching between drawing and image file modes."""
+        if self.ImagefileBtn.isChecked():
+            # Switch to image mode
+            # Get layout from whichever widget has a parent
+            layout = None
+            index = 0
+            if self.drawImageWidget.parent() is not None:
+                layout = self.drawImageWidget.parent().layout()
+                index = layout.indexOf(self.drawImageWidget)
+            elif self.drawManualWidget.parent() is not None:
+                layout = self.drawManualWidget.parent().layout()
+                index = layout.indexOf(self.drawManualWidget)
+            
+            if layout is None:
+                return  # Neither widget has a parent yet, skip
+            
+            if self.drawManualWidget.parent() is not None:
+                layout.removeWidget(self.drawManualWidget)
+                self.drawManualWidget.setParent(None)
+            
+            if self.drawImageWidget.parent() is None:
+                layout.insertWidget(index, self.drawImageWidget)
+            self.drawImageWidget.show()
+            
+            # Process image if loaded
+            if self.draw_image_path:
+                self._process_draw_image()
+        
+        elif self.DrawingBtn.isChecked():
+            # Switch to manual drawing mode
+            # Get layout from whichever widget has a parent
+            layout = None
+            index = 0
+            if self.drawManualWidget.parent() is not None:
+                layout = self.drawManualWidget.parent().layout()
+                index = layout.indexOf(self.drawManualWidget)
+            elif self.drawImageWidget.parent() is not None:
+                layout = self.drawImageWidget.parent().layout()
+                index = layout.indexOf(self.drawImageWidget)
+            
+            if layout is None:
+                return  # Neither widget has a parent yet, skip
+            
+            if self.drawImageWidget.parent() is not None:
+                layout.removeWidget(self.drawImageWidget)
+                self.drawImageWidget.setParent(None)
+            
+            if self.drawManualWidget.parent() is None:
+                layout.insertWidget(index, self.drawManualWidget)
+            self.drawManualWidget.show()
+            
+            # Process manual drawing if exists
+            if self.drawManualWidget.has_polylines():
+                self._process_manual_drawing()
+    
+    def _on_draw_image_loaded(self, file_path):
+        """Handle image being loaded/dropped."""
+        if not self.ImagefileBtn.isChecked():
+            return
+        
+        self.draw_image_path = file_path
+        print(f"[DrawPage] Image loaded: {file_path}")
+        self._process_draw_image()
+    
+    def _on_manual_drawing_updated(self):
+        """Handle manual drawing updates."""
+        if not self.DrawingBtn.isChecked():
+            return
+        
+        self._process_manual_drawing()
+    
+    def _on_undo_drawing(self):
+        """Handle undo button click - remove last polyline."""
+        self.drawManualWidget.undo_last_polyline()
+    
+    def _on_draw_parameter_changed(self):
+        """Handle edge detection parameter changes."""
+        # Update labels
+        self.drawCannyLowLabel.setText(str(self.drawCannyLowSlider.value()))
+        self.drawCannyHighLabel.setText(str(self.drawCannyHighSlider.value()))
+        self.drawKernelLabel.setText(str(self.drawKernelSlider.value()))
+        self.drawMergeLabel.setText(str(self.drawMergeSlider.value()))
+        
+        # Only reprocess if in image mode and image is loaded
+        if self.ImagefileBtn.isChecked() and self.draw_image_path:
+            self._process_draw_image()
+        elif self.DrawingBtn.isChecked() and self.drawManualWidget.has_polylines():
+            # Z height changes affect manual mode too
+            self._process_manual_drawing()
+    
+    def _on_draw_workspace_changed(self):
+        """Handle workspace parameter changes."""
+        # Reprocess based on current mode
+        if self.ImagefileBtn.isChecked() and self.draw_image_path:
+            self._process_draw_image()
+        elif self.DrawingBtn.isChecked() and self.drawManualWidget.has_polylines():
+            self._process_manual_drawing()
+    
+    def _process_draw_image(self):
+        """Process the current image with current settings."""
+        if not self.draw_image_path:
+            return
+        
+        try:
+            # Get workspace parameters
+            try:
+                center_x = float(self.drawCenterXLineEdit.text())
+                center_y = float(self.drawCenterYLineEdit.text())
+                square_size = float(self.drawLengthLineEdit.text())
+                drawing_z = float(self.drawZLineEdit.text())
+                pen_lift_z = float(self.drawZLiftLineEdit.text())
+            except ValueError:
+                print("[DrawPage] Invalid workspace parameters")
+                return
+            
+            # Create converter with current parameters
+            self.draw_converter = ImageToPolylines(
+                image_path=self.draw_image_path,
+                drawing_z=drawing_z,  # Z when drawing (pen down)
+                pen_lift_z=pen_lift_z,  # Z when moving between polylines (pen up)
+                square_size=square_size,
+                center_x=center_x,
+                center_y=center_y,
+                canny_threshold1=self.drawCannyLowSlider.value(),
+                canny_threshold2=self.drawCannyHighSlider.value(),
+                min_contour_length=10,
+                closing_kernel_size=self.drawKernelSlider.value(),
+                endpoint_merge_distance=float(self.drawMergeSlider.value()),
+                simplification_epsilon=1.5  # Douglas-Peucker simplification tolerance
+            )
+            
+            # Process image
+            self.draw_converter.load_and_process_image()
+            self.draw_converter.extract_polylines()
+            self.draw_converter.scale_to_workspace()
+            
+            # Get polylines with pen control (3D waypoints with pen lift at start/end)
+            self.draw_polylines = self.draw_converter.get_waypoints_with_pen_control()
+            
+            # Update visualization (use 2D scaled polylines for display)
+            self.drawPolylineWidget.update_polylines(
+                self.draw_converter.scaled_polylines,
+                square_size,
+                center_x,
+                center_y
+            )
+            
+            print(f"[DrawPage] Processed {len(self.draw_polylines)} polylines")
+            
+        except Exception as e:
+            print(f"[DrawPage] Error processing image: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _process_manual_drawing(self):
+        """Process manually drawn polylines with scaling and simplification."""
+        if not self.drawManualWidget.has_polylines():
+            print("[DrawPage] No manual polylines to process")
+            return
+        
+        try:
+            # Get workspace parameters
+            try:
+                center_x = float(self.drawCenterXLineEdit.text())
+                center_y = float(self.drawCenterYLineEdit.text())
+                square_size = float(self.drawLengthLineEdit.text())
+                drawing_z = float(self.drawZLineEdit.text())
+                pen_lift_z = float(self.drawZLiftLineEdit.text())
+            except ValueError:
+                print("[DrawPage] Invalid workspace parameters")
+                return
+            
+            # Get raw polylines from manual widget (in widget coordinates)
+            raw_polylines = self.drawManualWidget.get_polylines_as_numpy()
+            
+            if not raw_polylines:
+                return
+            
+            # Get widget dimensions
+            widget_width = self.drawManualWidget.width()
+            widget_height = self.drawManualWidget.height()
+            
+            # Calculate scaling factor (maintain aspect ratio)
+            scale_x = square_size / widget_width
+            scale_y = square_size / widget_height
+            scale = min(scale_x, scale_y)  # Use smaller scale to fit within square
+            
+            # Calculate the scaled dimensions
+            scaled_width = widget_width * scale
+            scaled_height = widget_height * scale
+            
+            # Calculate offset to center the scaled drawing in the square
+            offset_x = center_x - scaled_width / 2
+            offset_y = center_y - scaled_height / 2
+            
+            # Apply simplification and scaling to each polyline
+            scaled_polylines = []
+            original_point_count = 0
+            simplified_point_count = 0
+            simplification_epsilon = 1.5  # Tolerance for simplification
+            
+            for polyline in raw_polylines:
+                # Apply Douglas-Peucker simplification
+                original_point_count += len(polyline)
+                if simplification_epsilon > 0:
+                    simplified = cv2.approxPolyDP(polyline, simplification_epsilon, closed=False)
+                    simplified = simplified.reshape(-1, 2)
+                    simplified_point_count += len(simplified)
+                else:
+                    simplified = polyline
+                    simplified_point_count += len(simplified)
+                
+                # Scale and flip Y (widget Y goes down, robot Y goes up)
+                scaled = simplified * scale
+                scaled[:, 1] = scaled_height - scaled[:, 1]
+                
+                # Translate to center position
+                scaled[:, 0] += offset_x
+                scaled[:, 1] += offset_y
+                
+                scaled_polylines.append(scaled)
+            
+            # Print simplification statistics
+            if simplification_epsilon > 0 and original_point_count > 0:
+                reduction = 100 * (1 - simplified_point_count / original_point_count)
+                print(f"[Simplification] Reduced points from {original_point_count} to {simplified_point_count} ({reduction:.1f}% reduction)")
+            
+            # Convert to 3D waypoints with pen control
+            self.draw_polylines = []
+            for polyline in scaled_polylines:
+                polyline_waypoints = []
+                
+                # Start with pen lifted at the first point (approach position)
+                first_x, first_y = polyline[0]
+                polyline_waypoints.append((first_x, first_y, pen_lift_z))
+                
+                # Add all points in the polyline at drawing height
+                for point in polyline:
+                    x, y = point
+                    polyline_waypoints.append((x, y, drawing_z))
+                
+                # End with pen lifted at the last point
+                last_x, last_y = polyline[-1]
+                polyline_waypoints.append((last_x, last_y, pen_lift_z))
+                
+                self.draw_polylines.append(polyline_waypoints)
+            
+            # Update visualization
+            self.drawPolylineWidget.update_polylines(
+                scaled_polylines,
+                square_size,
+                center_x,
+                center_y
+            )
+            
+            print(f"[DrawPage] Processed {len(self.draw_polylines)} manual polylines")
+            
+        except Exception as e:
+            print(f"[DrawPage] Error processing manual drawing: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _on_start_drawing(self):
+        """Start executing drawing by planning and sending polylines one by one."""
+        if self.draw_executing:
+            print("[DrawPage] Already executing drawing")
+            return
+        
+        if not self.draw_polylines:
+            print("[DrawPage] No polylines to draw")
+            return
+        
+        if not self.serial_connection or not self.serial_connection.is_open:
+            print("[DrawPage] Serial connection not open")
+            return
+        
+        print(f"[DrawPage] Starting drawing with {len(self.draw_polylines)} polylines")
+        
+        self.draw_executing = True
+        self.draw_current_polyline_index = 0
+        self.startDrawingBtn.setEnabled(False)
+        
+        # Start drawing the first polyline
+        self._draw_next_polyline()
+    
+    def _draw_next_polyline(self):
+        """Plan and send the next polyline to the robot."""
+        if self.draw_current_polyline_index >= len(self.draw_polylines):
+            # Finished all polylines
+            print("[DrawPage] Drawing complete!")
+            self.draw_executing = False
+            self.startDrawingBtn.setEnabled(True)
+            return
+        
+        # Get current polyline (already 3D with pen control)
+        polyline = self.draw_polylines[self.draw_current_polyline_index]
+        print(f"[DrawPage] Drawing polyline {self.draw_current_polyline_index + 1}/{len(self.draw_polylines)} ({len(polyline)} points)")
+        
+        # Polyline is already a list of (x, y, z) tuples with pen control
+        # Extract drawing z (minimum z in the polyline, which is the pen-down position)
+        z_values = [z for x, y, z in polyline]
+        drawing_z = min(z_values)
+        # Set threshold with some margin to account for feedback variations
+        # but exclude pen lift transitions (which are at higher z)
+        self.draw_z_threshold = drawing_z + 5.0  # Only plot points within 5mm of drawing height
+        print(f"[DrawPage] Drawing z={drawing_z:.1f}, threshold={self.draw_z_threshold:.1f}")
+        
+        # Convert to list of lists for planner
+        waypoint_list = [[x, y, z] for x, y, z in polyline]
+        
+        # Create trajectory planner (same settings as chess)
+        planner = TrajectoryPlanner(
+            joints_max_speeds=np.array([20.0, 15.0, 15.0]),
+            joints_max_accel=np.array([60.0, 20.0, 20.0]),
+            dt_sample=1e-3,
+            inverse_kinematics_func=lambda x, y, z, mu: [
+                angle * 180.0/np.pi for angle in inverse_kinematics(x, y, z, mu=mu)
+            ],
+            mu_func=lambda x, y, z: 0.0,  # Fixed mu for drawing
+            gripper_actions=None,  # No gripper actions during drawing
+            max_waypoint_count=100,
+            min_waypoint_dt=0.02
+        )
+        
+        try:
+            # Clear live drawing widget at start of first polyline
+            if self.draw_current_polyline_index == 0:
+                self.drawLiveWidget_new.clear()
+                # Set workspace parameters from GUI
+                try:
+                    center_x = float(self.drawCenterXLineEdit.text())
+                    center_y = float(self.drawCenterYLineEdit.text())
+                    square_size = float(self.drawLengthLineEdit.text())
+                    self.drawLiveWidget_new.set_workspace(square_size, center_x, center_y)
+                except ValueError:
+                    pass  # Use defaults if parsing fails
+            
+            # Plan trajectory from waypoint list
+            planner.plan_trajectory(
+                waypoint_list=waypoint_list,
+                use_waypoint_list=True
+            )
+            
+            # Get Arduino command
+            command = planner.get_arduino_command()
+            
+            # Send command
+            print(f"[DrawPage] Sending waypoint command ({len(command)} chars)")
+            self.serial_connection.write(f"{command}\n".encode())
+            
+            # Enable live plotting and clear point buffer
+            self.draw_point_buffer.clear()
+            self.draw_plotting_active = True
+            print(f"[DrawPage] Live plotting enabled (z_threshold={self.draw_z_threshold:.1f})")
+            
+            # Wait for 'D' response before continuing
+            # The serial reader will call _on_draw_polyline_complete when 'D' is received
+            
+        except Exception as e:
+            print(f"[DrawPage] Error planning/sending polyline: {e}")
+            import traceback
+            traceback.print_exc()
+            self.draw_executing = False
+            self.startDrawingBtn.setEnabled(True)
+    
+    def _on_draw_polyline_complete(self):
+        """Called when Arduino sends 'D' indicating polyline is complete."""
+        if not self.draw_executing:
+            return
+        
+        # Disable live plotting when polyline is complete
+        self.draw_plotting_active = False
+        
+        # Flush remaining buffered points
+        self._update_live_drawing_from_buffer()
+        
+        print(f"[DrawPage] Polyline {self.draw_current_polyline_index + 1} complete, plotting disabled")
+        
+        # Move to next polyline
+        self.draw_current_polyline_index += 1
+        self._draw_next_polyline()
+    
+    def _update_live_drawing_from_buffer(self):
+        """Update live drawing widget with buffered points and robot position."""
+        # Update robot position (green dot) only when actively drawing
+        self.drawLiveWidget_new.update_robot_position(
+            self.current_x, 
+            self.current_y, 
+            show=self.draw_executing
+        )
+        
+        if self.draw_point_buffer:
+            # Add all buffered points at once (much more efficient than one by one)
+            self.drawLiveWidget_new.add_points(self.draw_point_buffer.copy())
+            
+            # Clear buffer
+            points_added = len(self.draw_point_buffer)
+            self.draw_point_buffer.clear()
+            
+            # Optional: print debug info
+            # print(f"[DrawPage] Added {points_added} buffered points to live drawing")
+        elif self.draw_executing:
+            # Even if no points to add, redraw to update the robot position when drawing
+            self.drawLiveWidget_new._redraw()
+    
+
     def _load_waypoints_from_file(self, file_path):
         """Load waypoints from a file with format x<value>y<value>z<value>"""
         try:
@@ -2676,6 +3205,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         self.verifying_robot_move = True  # We're verifying robot move, not waiting for user
                         print("[Chess] Resumed piece detection to verify robot move")
                 
+                # Check for 'D' response during drawing
+                if self.draw_executing and 'D' in data:
+                    print("[DrawPage] Received 'D' from Arduino - polyline complete!")
+                    self._on_draw_polyline_complete()
+                
                 self.serial_buffer += data
                 
                 # Process complete lines
@@ -2848,6 +3382,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         # Map gripper angle from 0-180 to 0-85 for 3D viewer
                         gripper_mapped = (gripper / 180.0) * 85.0
                         self.robot_viewer.set_gripper(gripper_mapped)
+                
+                # Buffer point for live drawing if plotting is active and z is low (pen down)
+                if self.draw_plotting_active and self.current_z < self.draw_z_threshold:
+                    self.draw_point_buffer.append((self.current_x, self.current_y))
                 
                 # print(f"Feedback: θ={theta:.2f}° α={alpha:.2f}° β={beta:.2f}° γ={gamma if gamma is not None else 'N/A'}° grip={gripper if gripper is not None else 'N/A'}° | x={self.current_x:.1f} y={self.current_y:.1f} z={self.current_z:.1f}")
         except (ValueError, IndexError) as e:

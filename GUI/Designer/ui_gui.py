@@ -2042,12 +2042,513 @@ class Ui_MainWindow(object):
         self.stackedWidget.addWidget(self.page_program)
         self.page_draw = QWidget()
         self.page_draw.setObjectName(u"page_draw")
-        self.label_6 = QLabel(self.page_draw)
-        self.label_6.setObjectName(u"label_6")
-        self.label_6.setGeometry(QRect(240, 240, 151, 71))
+        self.horizontalLayout_27 = QHBoxLayout(self.page_draw)
+        self.horizontalLayout_27.setObjectName(u"horizontalLayout_27")
+        self.drawLeftWidget = QWidget(self.page_draw)
+        self.drawLeftWidget.setObjectName(u"drawLeftWidget")
+        self.drawLeftWidget.setMinimumSize(QSize(500, 0))
+        self.drawLeftWidget.setMaximumSize(QSize(500, 16777215))
+        self.drawLeftWidget.setStyleSheet(u"")
+        self.verticalLayout_21 = QVBoxLayout(self.drawLeftWidget)
+        self.verticalLayout_21.setObjectName(u"verticalLayout_21")
+        self.widget = QWidget(self.drawLeftWidget)
+        self.widget.setObjectName(u"widget")
+        self.horizontalLayout_35 = QHBoxLayout(self.widget)
+        self.horizontalLayout_35.setObjectName(u"horizontalLayout_35")
+        self.horizontalSpacer_37 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_35.addItem(self.horizontalSpacer_37)
+
+        self.drawMainWidget = QWidget(self.widget)
+        self.drawMainWidget.setObjectName(u"drawMainWidget")
+        self.drawMainWidget.setMinimumSize(QSize(240, 240))
+        self.drawMainWidget.setMaximumSize(QSize(240, 240))
+        self.drawMainWidget.setStyleSheet(u"background-color: rgb(21, 21, 21);")
+
+        self.horizontalLayout_35.addWidget(self.drawMainWidget)
+
+        self.drawControlWidget = QWidget(self.widget)
+        self.drawControlWidget.setObjectName(u"drawControlWidget")
+        self.drawControlWidget.setMinimumSize(QSize(0, 0))
+        self.drawControlWidget.setMaximumSize(QSize(1000, 1000))
+        self.drawControlWidget.setStyleSheet(u"")
+        self.verticalLayout_18 = QVBoxLayout(self.drawControlWidget)
+        self.verticalLayout_18.setObjectName(u"verticalLayout_18")
+        self.startDrawingBtn = QPushButton(self.drawControlWidget)
+        self.startDrawingBtn.setObjectName(u"startDrawingBtn")
+        self.startDrawingBtn.setMinimumSize(QSize(32, 32))
+        self.startDrawingBtn.setMaximumSize(QSize(32, 32))
+        self.startDrawingBtn.setStyleSheet(u"QPushButton{\n"
+"	border: none;\n"
+"	background-color: transparent;\n"
+"}\n"
+"QPushButton:hover {\n"
+"	background-color: #444444;\n"
+"	color: white;\n"
+"	border: 1px solid #555555;\n"
+"}\n"
+"QPushButton:pressed {\n"
+"	background-color: transparent;\n"
+"	color: white;\n"
+"	border: 1px solid #444444;\n"
+"}")
+        self.startDrawingBtn.setIcon(icon15)
+        self.startDrawingBtn.setIconSize(QSize(32, 32))
+
+        self.verticalLayout_18.addWidget(self.startDrawingBtn)
+
+        self.pauseDrawingBtn = QPushButton(self.drawControlWidget)
+        self.pauseDrawingBtn.setObjectName(u"pauseDrawingBtn")
+        self.pauseDrawingBtn.setMinimumSize(QSize(32, 32))
+        self.pauseDrawingBtn.setMaximumSize(QSize(32, 32))
+        self.pauseDrawingBtn.setStyleSheet(u"QPushButton{\n"
+"	border: none;\n"
+"	background-color: transparent;\n"
+"}\n"
+"QPushButton:hover {\n"
+"	background-color: #444444;\n"
+"	color: white;\n"
+"	border: 1px solid #555555;\n"
+"}\n"
+"QPushButton:pressed {\n"
+"	background-color: transparent;\n"
+"	color: white;\n"
+"	border: 1px solid #444444;\n"
+"}")
+        self.pauseDrawingBtn.setIcon(icon16)
+        self.pauseDrawingBtn.setIconSize(QSize(32, 32))
+
+        self.verticalLayout_18.addWidget(self.pauseDrawingBtn)
+
+        self.stopDrawingBtn = QPushButton(self.drawControlWidget)
+        self.stopDrawingBtn.setObjectName(u"stopDrawingBtn")
+        self.stopDrawingBtn.setMinimumSize(QSize(32, 32))
+        self.stopDrawingBtn.setMaximumSize(QSize(32, 32))
+        self.stopDrawingBtn.setStyleSheet(u"QPushButton{\n"
+"	border: none;\n"
+"	background-color: transparent;\n"
+"}\n"
+"QPushButton:hover {\n"
+"	background-color: #444444;\n"
+"	color: white;\n"
+"	border: 1px solid #555555;\n"
+"}\n"
+"QPushButton:pressed {\n"
+"	background-color: transparent;\n"
+"	color: white;\n"
+"	border: 1px solid #444444;\n"
+"}")
+        self.stopDrawingBtn.setIcon(icon17)
+        self.stopDrawingBtn.setIconSize(QSize(32, 32))
+
+        self.verticalLayout_18.addWidget(self.stopDrawingBtn)
+
+        self.undoDrawingBtn = QPushButton(self.drawControlWidget)
+        self.undoDrawingBtn.setObjectName(u"undoDrawingBtn")
+        self.undoDrawingBtn.setMinimumSize(QSize(32, 32))
+        self.undoDrawingBtn.setMaximumSize(QSize(32, 32))
+        self.undoDrawingBtn.setStyleSheet(u"QPushButton{\n"
+"	border: none;\n"
+"	background-color: transparent;\n"
+"}\n"
+"QPushButton:hover {\n"
+"	background-color: #444444;\n"
+"	color: white;\n"
+"	border: 1px solid #555555;\n"
+"}\n"
+"QPushButton:pressed {\n"
+"	background-color: transparent;\n"
+"	color: white;\n"
+"	border: 1px solid #444444;\n"
+"}")
+        self.undoDrawingBtn.setIcon(icon7)
+        self.undoDrawingBtn.setIconSize(QSize(32, 32))
+
+        self.verticalLayout_18.addWidget(self.undoDrawingBtn)
+
+
+        self.horizontalLayout_35.addWidget(self.drawControlWidget)
+
+        self.horizontalSpacer_38 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_35.addItem(self.horizontalSpacer_38)
+
+
+        self.verticalLayout_21.addWidget(self.widget)
+
+        self.groupBoxDraw = QGroupBox(self.drawLeftWidget)
+        self.groupBoxDraw.setObjectName(u"groupBoxDraw")
+        self.groupBoxDraw.setStyleSheet(u"QGroupBox {\n"
+"    font-family: \"Segoe UI\";\n"
+"    font-size: 18px;\n"
+"}\n"
+"QGroupBox::title {\n"
+"    letter-spacing: 2px;\n"
+"	subcontrol-position: top center;\n"
+"}\n"
+"")
+        self.verticalLayout_20 = QVBoxLayout(self.groupBoxDraw)
+        self.verticalLayout_20.setSpacing(2)
+        self.verticalLayout_20.setObjectName(u"verticalLayout_20")
+        self.verticalLayout_20.setContentsMargins(-1, 8, -1, 8)
+        self.drawInputWidget = QWidget(self.groupBoxDraw)
+        self.drawInputWidget.setObjectName(u"drawInputWidget")
+        self.horizontalLayout_33 = QHBoxLayout(self.drawInputWidget)
+        self.horizontalLayout_33.setSpacing(10)
+        self.horizontalLayout_33.setObjectName(u"horizontalLayout_33")
+        self.horizontalLayout_33.setContentsMargins(-1, 2, -1, 2)
+        self.drawLabelInput = QLabel(self.drawInputWidget)
+        self.drawLabelInput.setObjectName(u"drawLabelInput")
+        self.drawLabelInput.setMaximumSize(QSize(50, 16777215))
         font11 = QFont()
-        font11.setPointSize(40)
-        self.label_6.setFont(font11)
+        font11.setPointSize(12)
+        self.drawLabelInput.setFont(font11)
+        self.drawLabelInput.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_33.addWidget(self.drawLabelInput)
+
+        self.horizontalSpacer_36 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_33.addItem(self.horizontalSpacer_36)
+
+        self.horizontalSpacer_41 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_33.addItem(self.horizontalSpacer_41)
+
+        self.DrawingBtn = QPushButton(self.drawInputWidget)
+        self.DrawingBtn.setObjectName(u"DrawingBtn")
+        self.DrawingBtn.setMinimumSize(QSize(80, 24))
+        self.DrawingBtn.setMaximumSize(QSize(80, 24))
+        self.DrawingBtn.setFont(font11)
+        self.DrawingBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.DrawingBtn.setCheckable(True)
+        self.DrawingBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_33.addWidget(self.DrawingBtn)
+
+        self.horizontalSpacer_39 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_33.addItem(self.horizontalSpacer_39)
+
+        self.ImagefileBtn = QPushButton(self.drawInputWidget)
+        self.ImagefileBtn.setObjectName(u"ImagefileBtn")
+        self.ImagefileBtn.setMinimumSize(QSize(92, 24))
+        self.ImagefileBtn.setMaximumSize(QSize(92, 24))
+        self.ImagefileBtn.setFont(font11)
+        self.ImagefileBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.ImagefileBtn.setCheckable(True)
+        self.ImagefileBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_33.addWidget(self.ImagefileBtn)
+
+        self.horizontalSpacer_40 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_33.addItem(self.horizontalSpacer_40)
+
+        self.horizontalSpacer_44 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_33.addItem(self.horizontalSpacer_44)
+
+
+        self.verticalLayout_20.addWidget(self.drawInputWidget)
+
+        self.drawInputWidget_2 = QWidget(self.groupBoxDraw)
+        self.drawInputWidget_2.setObjectName(u"drawInputWidget_2")
+        self.horizontalLayout_34 = QHBoxLayout(self.drawInputWidget_2)
+        self.horizontalLayout_34.setObjectName(u"horizontalLayout_34")
+        self.horizontalLayout_34.setContentsMargins(-1, 2, -1, 2)
+        self.drawCenterXLabel = QLabel(self.drawInputWidget_2)
+        self.drawCenterXLabel.setObjectName(u"drawCenterXLabel")
+        self.drawCenterXLabel.setMaximumSize(QSize(80, 16777215))
+        self.drawCenterXLabel.setFont(font11)
+        self.drawCenterXLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_34.addWidget(self.drawCenterXLabel)
+
+        self.drawCenterXLineEdit = QLineEdit(self.drawInputWidget_2)
+        self.drawCenterXLineEdit.setObjectName(u"drawCenterXLineEdit")
+        self.drawCenterXLineEdit.setMinimumSize(QSize(0, 26))
+
+        self.horizontalLayout_34.addWidget(self.drawCenterXLineEdit)
+
+        self.drawCenterYLabel = QLabel(self.drawInputWidget_2)
+        self.drawCenterYLabel.setObjectName(u"drawCenterYLabel")
+        self.drawCenterYLabel.setMaximumSize(QSize(80, 16777215))
+        self.drawCenterYLabel.setFont(font11)
+        self.drawCenterYLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_34.addWidget(self.drawCenterYLabel)
+
+        self.drawCenterYLineEdit = QLineEdit(self.drawInputWidget_2)
+        self.drawCenterYLineEdit.setObjectName(u"drawCenterYLineEdit")
+        self.drawCenterYLineEdit.setMinimumSize(QSize(0, 26))
+
+        self.horizontalLayout_34.addWidget(self.drawCenterYLineEdit)
+
+        self.drawLengthLabel = QLabel(self.drawInputWidget_2)
+        self.drawLengthLabel.setObjectName(u"drawLengthLabel")
+        self.drawLengthLabel.setMinimumSize(QSize(140, 0))
+        self.drawLengthLabel.setMaximumSize(QSize(140, 16777215))
+        self.drawLengthLabel.setFont(font11)
+        self.drawLengthLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_34.addWidget(self.drawLengthLabel)
+
+        self.drawLengthLineEdit = QLineEdit(self.drawInputWidget_2)
+        self.drawLengthLineEdit.setObjectName(u"drawLengthLineEdit")
+        self.drawLengthLineEdit.setMinimumSize(QSize(40, 26))
+        self.drawLengthLineEdit.setMaximumSize(QSize(40, 16777215))
+
+        self.horizontalLayout_34.addWidget(self.drawLengthLineEdit)
+
+
+        self.verticalLayout_20.addWidget(self.drawInputWidget_2)
+
+        self.drawInputWidget_3 = QWidget(self.groupBoxDraw)
+        self.drawInputWidget_3.setObjectName(u"drawInputWidget_3")
+        self.horizontalLayout_36 = QHBoxLayout(self.drawInputWidget_3)
+        self.horizontalLayout_36.setSpacing(10)
+        self.horizontalLayout_36.setObjectName(u"horizontalLayout_36")
+        self.horizontalLayout_36.setContentsMargins(-1, 2, -1, 2)
+        self.drawZLabel = QLabel(self.drawInputWidget_3)
+        self.drawZLabel.setObjectName(u"drawZLabel")
+        self.drawZLabel.setMinimumSize(QSize(120, 0))
+        self.drawZLabel.setMaximumSize(QSize(120, 16777215))
+        self.drawZLabel.setFont(font11)
+        self.drawZLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_36.addWidget(self.drawZLabel)
+
+        self.drawZLineEdit = QLineEdit(self.drawInputWidget_3)
+        self.drawZLineEdit.setObjectName(u"drawZLineEdit")
+        self.drawZLineEdit.setMinimumSize(QSize(0, 26))
+
+        self.horizontalLayout_36.addWidget(self.drawZLineEdit)
+
+        self.drawZliftLabel = QLabel(self.drawInputWidget_3)
+        self.drawZliftLabel.setObjectName(u"drawZliftLabel")
+        self.drawZliftLabel.setMinimumSize(QSize(120, 0))
+        self.drawZliftLabel.setMaximumSize(QSize(120, 16777215))
+        self.drawZliftLabel.setFont(font11)
+        self.drawZliftLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_36.addWidget(self.drawZliftLabel)
+
+        self.drawZLiftLineEdit = QLineEdit(self.drawInputWidget_3)
+        self.drawZLiftLineEdit.setObjectName(u"drawZLiftLineEdit")
+        self.drawZLiftLineEdit.setMinimumSize(QSize(0, 26))
+
+        self.horizontalLayout_36.addWidget(self.drawZLiftLineEdit)
+
+
+        self.verticalLayout_20.addWidget(self.drawInputWidget_3)
+
+        self.drawCannyWidget1 = QWidget(self.groupBoxDraw)
+        self.drawCannyWidget1.setObjectName(u"drawCannyWidget1")
+        self.horizontalLayout_38 = QHBoxLayout(self.drawCannyWidget1)
+        self.horizontalLayout_38.setSpacing(10)
+        self.horizontalLayout_38.setObjectName(u"horizontalLayout_38")
+        self.horizontalLayout_38.setContentsMargins(-1, 2, -1, 2)
+        self.chessLabel_10 = QLabel(self.drawCannyWidget1)
+        self.chessLabel_10.setObjectName(u"chessLabel_10")
+        self.chessLabel_10.setMinimumSize(QSize(92, 0))
+        self.chessLabel_10.setMaximumSize(QSize(92, 16777215))
+        self.chessLabel_10.setFont(font11)
+        self.chessLabel_10.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_38.addWidget(self.chessLabel_10)
+
+        self.drawCannyLowSlider = QSlider(self.drawCannyWidget1)
+        self.drawCannyLowSlider.setObjectName(u"drawCannyLowSlider")
+        self.drawCannyLowSlider.setOrientation(Qt.Orientation.Horizontal)
+
+        self.horizontalLayout_38.addWidget(self.drawCannyLowSlider)
+
+        self.drawCannyLowLabel = QLabel(self.drawCannyWidget1)
+        self.drawCannyLowLabel.setObjectName(u"drawCannyLowLabel")
+        self.drawCannyLowLabel.setMinimumSize(QSize(28, 0))
+
+        self.horizontalLayout_38.addWidget(self.drawCannyLowLabel)
+
+
+        self.verticalLayout_20.addWidget(self.drawCannyWidget1)
+
+        self.drawCannyWidget2 = QWidget(self.groupBoxDraw)
+        self.drawCannyWidget2.setObjectName(u"drawCannyWidget2")
+        self.horizontalLayout_39 = QHBoxLayout(self.drawCannyWidget2)
+        self.horizontalLayout_39.setSpacing(10)
+        self.horizontalLayout_39.setObjectName(u"horizontalLayout_39")
+        self.horizontalLayout_39.setContentsMargins(-1, 2, -1, 2)
+        self.chessLabel_11 = QLabel(self.drawCannyWidget2)
+        self.chessLabel_11.setObjectName(u"chessLabel_11")
+        self.chessLabel_11.setMinimumSize(QSize(92, 0))
+        self.chessLabel_11.setMaximumSize(QSize(92, 16777215))
+        self.chessLabel_11.setFont(font11)
+        self.chessLabel_11.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_39.addWidget(self.chessLabel_11)
+
+        self.drawCannyHighSlider = QSlider(self.drawCannyWidget2)
+        self.drawCannyHighSlider.setObjectName(u"drawCannyHighSlider")
+        self.drawCannyHighSlider.setOrientation(Qt.Orientation.Horizontal)
+
+        self.horizontalLayout_39.addWidget(self.drawCannyHighSlider)
+
+        self.drawCannyHighLabel = QLabel(self.drawCannyWidget2)
+        self.drawCannyHighLabel.setObjectName(u"drawCannyHighLabel")
+        self.drawCannyHighLabel.setMinimumSize(QSize(28, 0))
+
+        self.horizontalLayout_39.addWidget(self.drawCannyHighLabel)
+
+
+        self.verticalLayout_20.addWidget(self.drawCannyWidget2)
+
+        self.drawKernelWidget = QWidget(self.groupBoxDraw)
+        self.drawKernelWidget.setObjectName(u"drawKernelWidget")
+        self.horizontalLayout_41 = QHBoxLayout(self.drawKernelWidget)
+        self.horizontalLayout_41.setSpacing(10)
+        self.horizontalLayout_41.setObjectName(u"horizontalLayout_41")
+        self.horizontalLayout_41.setContentsMargins(-1, 2, -1, 2)
+        self.chessLabel_13 = QLabel(self.drawKernelWidget)
+        self.chessLabel_13.setObjectName(u"chessLabel_13")
+        self.chessLabel_13.setMinimumSize(QSize(92, 0))
+        self.chessLabel_13.setMaximumSize(QSize(92, 16777215))
+        self.chessLabel_13.setFont(font11)
+        self.chessLabel_13.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_41.addWidget(self.chessLabel_13)
+
+        self.drawKernelSlider = QSlider(self.drawKernelWidget)
+        self.drawKernelSlider.setObjectName(u"drawKernelSlider")
+        self.drawKernelSlider.setOrientation(Qt.Orientation.Horizontal)
+
+        self.horizontalLayout_41.addWidget(self.drawKernelSlider)
+
+        self.drawKernelLabel = QLabel(self.drawKernelWidget)
+        self.drawKernelLabel.setObjectName(u"drawKernelLabel")
+        self.drawKernelLabel.setMinimumSize(QSize(28, 0))
+
+        self.horizontalLayout_41.addWidget(self.drawKernelLabel)
+
+
+        self.verticalLayout_20.addWidget(self.drawKernelWidget)
+
+        self.drawMergeWidget = QWidget(self.groupBoxDraw)
+        self.drawMergeWidget.setObjectName(u"drawMergeWidget")
+        self.horizontalLayout_43 = QHBoxLayout(self.drawMergeWidget)
+        self.horizontalLayout_43.setSpacing(10)
+        self.horizontalLayout_43.setObjectName(u"horizontalLayout_43")
+        self.horizontalLayout_43.setContentsMargins(-1, 2, -1, 2)
+        self.chessLabel_15 = QLabel(self.drawMergeWidget)
+        self.chessLabel_15.setObjectName(u"chessLabel_15")
+        self.chessLabel_15.setMinimumSize(QSize(92, 0))
+        self.chessLabel_15.setMaximumSize(QSize(92, 16777215))
+        self.chessLabel_15.setFont(font11)
+        self.chessLabel_15.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_43.addWidget(self.chessLabel_15)
+
+        self.drawMergeSlider = QSlider(self.drawMergeWidget)
+        self.drawMergeSlider.setObjectName(u"drawMergeSlider")
+        self.drawMergeSlider.setOrientation(Qt.Orientation.Horizontal)
+
+        self.horizontalLayout_43.addWidget(self.drawMergeSlider)
+
+        self.drawMergeLabel = QLabel(self.drawMergeWidget)
+        self.drawMergeLabel.setObjectName(u"drawMergeLabel")
+        self.drawMergeLabel.setMinimumSize(QSize(28, 0))
+
+        self.horizontalLayout_43.addWidget(self.drawMergeLabel)
+
+
+        self.verticalLayout_20.addWidget(self.drawMergeWidget)
+
+
+        self.verticalLayout_21.addWidget(self.groupBoxDraw)
+
+
+        self.horizontalLayout_27.addWidget(self.drawLeftWidget)
+
+        self.line_2 = QFrame(self.page_draw)
+        self.line_2.setObjectName(u"line_2")
+        self.line_2.setMinimumSize(QSize(1, 0))
+        self.line_2.setMaximumSize(QSize(1, 16777215))
+        font12 = QFont()
+        font12.setBold(False)
+        self.line_2.setFont(font12)
+        self.line_2.setStyleSheet(u"background-color: rgb(170, 170, 170);")
+        self.line_2.setFrameShape(QFrame.Shape.VLine)
+        self.line_2.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.horizontalLayout_27.addWidget(self.line_2)
+
+        self.widget_4 = QWidget(self.page_draw)
+        self.widget_4.setObjectName(u"widget_4")
+        self.widget_4.setMinimumSize(QSize(260, 0))
+        self.widget_4.setStyleSheet(u"")
+        self.verticalLayout_22 = QVBoxLayout(self.widget_4)
+        self.verticalLayout_22.setObjectName(u"verticalLayout_22")
+        self.drawResultWidget = QWidget(self.widget_4)
+        self.drawResultWidget.setObjectName(u"drawResultWidget")
+        self.drawResultWidget.setMinimumSize(QSize(0, 260))
+        self.drawResultWidget.setStyleSheet(u"background-color: rgb(21, 21, 21);")
+
+        self.verticalLayout_22.addWidget(self.drawResultWidget)
+
+        self.line_3 = QFrame(self.widget_4)
+        self.line_3.setObjectName(u"line_3")
+        self.line_3.setMinimumSize(QSize(0, 1))
+        self.line_3.setMaximumSize(QSize(16777215, 1))
+        self.line_3.setStyleSheet(u"background-color: rgb(170, 170, 170);")
+        self.line_3.setFrameShape(QFrame.Shape.HLine)
+        self.line_3.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.verticalLayout_22.addWidget(self.line_3)
+
+        self.drawLiveWidget = QWidget(self.widget_4)
+        self.drawLiveWidget.setObjectName(u"drawLiveWidget")
+        self.drawLiveWidget.setMinimumSize(QSize(0, 260))
+        self.drawLiveWidget.setStyleSheet(u"background-color: rgb(21, 21, 21);")
+
+        self.verticalLayout_22.addWidget(self.drawLiveWidget)
+
+
+        self.horizontalLayout_27.addWidget(self.widget_4)
+
         self.stackedWidget.addWidget(self.page_draw)
         self.page_chess = QWidget()
         self.page_chess.setObjectName(u"page_chess")
@@ -2065,9 +2566,9 @@ class Ui_MainWindow(object):
         self.chessLabel.setObjectName(u"chessLabel")
         self.chessLabel.setMinimumSize(QSize(0, 40))
         self.chessLabel.setMaximumSize(QSize(16777215, 40))
-        font12 = QFont()
-        font12.setPointSize(22)
-        self.chessLabel.setFont(font12)
+        font13 = QFont()
+        font13.setPointSize(22)
+        self.chessLabel.setFont(font13)
         self.chessLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.verticalLayout_17.addWidget(self.chessLabel)
@@ -2076,9 +2577,9 @@ class Ui_MainWindow(object):
         self.chessWidget.setObjectName(u"chessWidget")
         self.chessWidget.setMinimumSize(QSize(400, 400))
         self.chessWidget.setMaximumSize(QSize(10000, 10000))
-        font13 = QFont()
-        font13.setUnderline(False)
-        self.chessWidget.setFont(font13)
+        font14 = QFont()
+        font14.setUnderline(False)
+        self.chessWidget.setFont(font14)
         self.chessWidget.setStyleSheet(u"")
 
         self.verticalLayout_17.addWidget(self.chessWidget, 0, Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
@@ -2094,9 +2595,9 @@ class Ui_MainWindow(object):
         self.chess_initializeBtn.setObjectName(u"chess_initializeBtn")
         self.chess_initializeBtn.setMinimumSize(QSize(100, 32))
         self.chess_initializeBtn.setMaximumSize(QSize(100, 16777215))
-        font14 = QFont()
-        font14.setPointSize(16)
-        self.chess_initializeBtn.setFont(font14)
+        font15 = QFont()
+        font15.setPointSize(16)
+        self.chess_initializeBtn.setFont(font15)
         self.chess_initializeBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2124,7 +2625,7 @@ class Ui_MainWindow(object):
         self.chess_playBtn.setObjectName(u"chess_playBtn")
         self.chess_playBtn.setMinimumSize(QSize(100, 32))
         self.chess_playBtn.setMaximumSize(QSize(100, 16777215))
-        self.chess_playBtn.setFont(font14)
+        self.chess_playBtn.setFont(font15)
         self.chess_playBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2189,9 +2690,7 @@ class Ui_MainWindow(object):
         self.chessLabel_2 = QLabel(self.chessInputWidget)
         self.chessLabel_2.setObjectName(u"chessLabel_2")
         self.chessLabel_2.setMaximumSize(QSize(50, 16777215))
-        font15 = QFont()
-        font15.setPointSize(12)
-        self.chessLabel_2.setFont(font15)
+        self.chessLabel_2.setFont(font11)
         self.chessLabel_2.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.horizontalLayout_29.addWidget(self.chessLabel_2)
@@ -2204,7 +2703,7 @@ class Ui_MainWindow(object):
         self.chess_camidBtn.setObjectName(u"chess_camidBtn")
         self.chess_camidBtn.setMinimumSize(QSize(64, 24))
         self.chess_camidBtn.setMaximumSize(QSize(64, 24))
-        self.chess_camidBtn.setFont(font15)
+        self.chess_camidBtn.setFont(font11)
         self.chess_camidBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2232,7 +2731,7 @@ class Ui_MainWindow(object):
         self.chess_camipBtn.setObjectName(u"chess_camipBtn")
         self.chess_camipBtn.setMinimumSize(QSize(64, 24))
         self.chess_camipBtn.setMaximumSize(QSize(64, 24))
-        self.chess_camipBtn.setFont(font15)
+        self.chess_camipBtn.setFont(font11)
         self.chess_camipBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2260,7 +2759,7 @@ class Ui_MainWindow(object):
         self.chess_videoBtn.setObjectName(u"chess_videoBtn")
         self.chess_videoBtn.setMinimumSize(QSize(64, 24))
         self.chess_videoBtn.setMaximumSize(QSize(64, 24))
-        self.chess_videoBtn.setFont(font15)
+        self.chess_videoBtn.setFont(font11)
         self.chess_videoBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2294,7 +2793,7 @@ class Ui_MainWindow(object):
         self.chess_modeLabel = QLabel(self.chessInfoWidget)
         self.chess_modeLabel.setObjectName(u"chess_modeLabel")
         self.chess_modeLabel.setMaximumSize(QSize(80, 16777215))
-        self.chess_modeLabel.setFont(font15)
+        self.chess_modeLabel.setFont(font11)
         self.chess_modeLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.horizontalLayout_30.addWidget(self.chess_modeLabel)
@@ -2323,7 +2822,7 @@ class Ui_MainWindow(object):
         self.chessLabel_5 = QLabel(self.chessModeWidget)
         self.chessLabel_5.setObjectName(u"chessLabel_5")
         self.chessLabel_5.setMaximumSize(QSize(80, 16777215))
-        self.chessLabel_5.setFont(font15)
+        self.chessLabel_5.setFont(font11)
         self.chessLabel_5.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.horizontalLayout_31.addWidget(self.chessLabel_5)
@@ -2336,7 +2835,7 @@ class Ui_MainWindow(object):
         self.chess_mode_blackBtn.setObjectName(u"chess_mode_blackBtn")
         self.chess_mode_blackBtn.setMinimumSize(QSize(64, 24))
         self.chess_mode_blackBtn.setMaximumSize(QSize(64, 24))
-        self.chess_mode_blackBtn.setFont(font15)
+        self.chess_mode_blackBtn.setFont(font11)
         self.chess_mode_blackBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2368,7 +2867,7 @@ class Ui_MainWindow(object):
         self.chess_mode_whiteBtn.setObjectName(u"chess_mode_whiteBtn")
         self.chess_mode_whiteBtn.setMinimumSize(QSize(64, 24))
         self.chess_mode_whiteBtn.setMaximumSize(QSize(64, 24))
-        self.chess_mode_whiteBtn.setFont(font15)
+        self.chess_mode_whiteBtn.setFont(font11)
         self.chess_mode_whiteBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2408,7 +2907,7 @@ class Ui_MainWindow(object):
         self.chessLabel_6.setObjectName(u"chessLabel_6")
         self.chessLabel_6.setMinimumSize(QSize(130, 0))
         self.chessLabel_6.setMaximumSize(QSize(130, 16777215))
-        self.chessLabel_6.setFont(font15)
+        self.chessLabel_6.setFont(font11)
         self.chessLabel_6.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.horizontalLayout_32.addWidget(self.chessLabel_6)
@@ -2462,13 +2961,13 @@ class Ui_MainWindow(object):
         self.ChessBtn2.toggled.connect(self.ChessBtn1.setChecked)
         self.MinimizeBtn.clicked.connect(MainWindow.showMinimized)
         self.CloseBtn.clicked.connect(MainWindow.close)
-        self.recordBtn.toggled.connect(self.fileLabel.setHidden)
         self.recordBtn.toggled.connect(self.execWidget.setHidden)
-        self.execBtn.toggled.connect(self.recordWidget.setHidden)
         self.execBtn.toggled.connect(self.execWidget.setVisible)
-        self.recordBtn.toggled.connect(self.importBtn.setHidden)
         self.execBtn.toggled.connect(self.fileLabel.setVisible)
+        self.execBtn.toggled.connect(self.recordWidget.setHidden)
+        self.recordBtn.toggled.connect(self.fileLabel.setHidden)
         self.execBtn.toggled.connect(self.importBtn.setVisible)
+        self.recordBtn.toggled.connect(self.importBtn.setHidden)
 
         self.stackedWidget.setCurrentIndex(0)
 
@@ -2498,7 +2997,7 @@ class Ui_MainWindow(object):
         self.resetRightBtn.setText("")
         self.abortBtn.setText("")
         self.devBtn.setText("")
-        self.label_4.setText(QCoreApplication.translate("MainWindow", u"Graphical Interface - Projet 3", None))
+        self.label_4.setText(QCoreApplication.translate("MainWindow", u"Projet 3: Robot Arm - Graphical Interface", None))
         self.MinimizeBtn.setText("")
         self.MaximizeBtn.setText("")
         self.CloseBtn.setText("")
@@ -2562,7 +3061,32 @@ class Ui_MainWindow(object):
         self.importBtn.setText(QCoreApplication.translate("MainWindow", u" Import", None))
         self.fileLabel.setText(QCoreApplication.translate("MainWindow", u"No file selected", None))
         self.label_17.setText(QCoreApplication.translate("MainWindow", u"\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013  Position List  \u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013", None))
-        self.label_6.setText(QCoreApplication.translate("MainWindow", u"Draw", None))
+        self.startDrawingBtn.setText("")
+        self.pauseDrawingBtn.setText("")
+        self.stopDrawingBtn.setText("")
+        self.undoDrawingBtn.setText("")
+        self.groupBoxDraw.setTitle(QCoreApplication.translate("MainWindow", u"Draw Settings", None))
+        self.drawLabelInput.setText(QCoreApplication.translate("MainWindow", u"Input:", None))
+        self.DrawingBtn.setText(QCoreApplication.translate("MainWindow", u"Drawing", None))
+        self.ImagefileBtn.setText(QCoreApplication.translate("MainWindow", u"Image file", None))
+        self.drawCenterXLabel.setText(QCoreApplication.translate("MainWindow", u"Center X", None))
+        self.drawCenterXLineEdit.setText(QCoreApplication.translate("MainWindow", u"420", None))
+        self.drawCenterYLabel.setText(QCoreApplication.translate("MainWindow", u"Center Y", None))
+        self.drawCenterYLineEdit.setText(QCoreApplication.translate("MainWindow", u"0", None))
+        self.drawLengthLabel.setText(QCoreApplication.translate("MainWindow", u"Square side length", None))
+        self.drawLengthLineEdit.setText(QCoreApplication.translate("MainWindow", u"100", None))
+        self.drawZLabel.setText(QCoreApplication.translate("MainWindow", u"Drawing altitude", None))
+        self.drawZLineEdit.setText(QCoreApplication.translate("MainWindow", u"20", None))
+        self.drawZliftLabel.setText(QCoreApplication.translate("MainWindow", u"Pen lift altitude", None))
+        self.drawZLiftLineEdit.setText(QCoreApplication.translate("MainWindow", u"40", None))
+        self.chessLabel_10.setText(QCoreApplication.translate("MainWindow", u"Canny Low", None))
+        self.drawCannyLowLabel.setText(QCoreApplication.translate("MainWindow", u"80", None))
+        self.chessLabel_11.setText(QCoreApplication.translate("MainWindow", u"Canny High", None))
+        self.drawCannyHighLabel.setText(QCoreApplication.translate("MainWindow", u"150", None))
+        self.chessLabel_13.setText(QCoreApplication.translate("MainWindow", u"Close Kernel", None))
+        self.drawKernelLabel.setText(QCoreApplication.translate("MainWindow", u"5", None))
+        self.chessLabel_15.setText(QCoreApplication.translate("MainWindow", u"Merge Dis", None))
+        self.drawMergeLabel.setText(QCoreApplication.translate("MainWindow", u"10", None))
         self.chessLabel.setText("")
         self.chess_initializeBtn.setText(QCoreApplication.translate("MainWindow", u"Initialize", None))
         self.chess_playBtn.setText(QCoreApplication.translate("MainWindow", u"Play", None))

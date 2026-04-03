@@ -60,12 +60,12 @@ Arduino/**/*.gitignore
 *.swo
 
 # Images
-AI/data/
 *.jpg
 *.png
 *.mp4
-!GUI/**/*.png
-!GUI/**/*.jpg
+!GUI/Designer/**/*.png
+!GUI/Designer/**/*.jpg
 
 #Debug
 Debugger/output.txt
+GUI/Draw/waypoints.txt

@@ -25,7 +25,7 @@ float h = 150.0;
 int min_position_ax12 = 0;
 int max_position_ax12 = 200;
 int min_position_mx28 = 50;
-int def_position_mx28 = 1425;
+int def_position_mx28 = 1520;
 int max_position_mx28 = 2900;
 
 // ===========================
@@ -54,7 +54,7 @@ bool homed_all = true;
 unsigned long last_homing_step[N] = {0, 0, 0};
 float homing_delay[N] = {2000, 2000, 2000};
 bool inv_dir_homing[N] = {false, true, false};
-float calibrated_angles[N] = {-2.5, -16.8-1.0, 45.8-2.0};
+float calibrated_angles[N] = {-4.5, -16.8-1.0, 45.8-2.0};
 
 // ===========================
 // KINEMATICS RESULTS

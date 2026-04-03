@@ -59,7 +59,7 @@ class BoardAnalyzerConfig:
     video_path: str = "video.mp4"
     video_input_speed: int = 30  # frames per second
     camera_index: int = 0  # Default camera index
-    camera_ip: str = "http://100.97.178.37:8080//video"  # IP camera URL
+    camera_ip: str = "http://10.131.233.18:8080/video"  # IP camera URL
     
     # Display settings
     display_confidence_decimals: int = 2  # Number of decimal places for confidence
