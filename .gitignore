@@ -65,6 +65,8 @@ Arduino/**/*.gitignore
 *.mp4
 !GUI/Designer/**/*.png
 !GUI/Designer/**/*.jpg
+!images/*.png
+!images/*.jpg
 
 #Debug
 Debugger/output.txt
