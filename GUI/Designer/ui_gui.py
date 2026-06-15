@@ -2567,7 +2567,7 @@ class Ui_MainWindow(object):
         self.chessLabel.setMinimumSize(QSize(0, 40))
         self.chessLabel.setMaximumSize(QSize(16777215, 40))
         font13 = QFont()
-        font13.setPointSize(22)
+        font13.setPointSize(16)
         self.chessLabel.setFont(font13)
         self.chessLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -2595,9 +2595,7 @@ class Ui_MainWindow(object):
         self.chess_initializeBtn.setObjectName(u"chess_initializeBtn")
         self.chess_initializeBtn.setMinimumSize(QSize(100, 32))
         self.chess_initializeBtn.setMaximumSize(QSize(100, 16777215))
-        font15 = QFont()
-        font15.setPointSize(16)
-        self.chess_initializeBtn.setFont(font15)
+        self.chess_initializeBtn.setFont(font13)
         self.chess_initializeBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2625,7 +2623,7 @@ class Ui_MainWindow(object):
         self.chess_playBtn.setObjectName(u"chess_playBtn")
         self.chess_playBtn.setMinimumSize(QSize(100, 32))
         self.chess_playBtn.setMaximumSize(QSize(100, 16777215))
-        self.chess_playBtn.setFont(font15)
+        self.chess_playBtn.setFont(font13)
         self.chess_playBtn.setStyleSheet(u"QPushButton {\n"
 "	background-color: transparent;\n"
 "	border: 1px solid #cccccc;\n"
@@ -2681,12 +2679,14 @@ class Ui_MainWindow(object):
 "}\n"
 "")
         self.verticalLayout_19 = QVBoxLayout(self.groupBox)
+        self.verticalLayout_19.setSpacing(3)
         self.verticalLayout_19.setObjectName(u"verticalLayout_19")
         self.chessInputWidget = QWidget(self.groupBox)
         self.chessInputWidget.setObjectName(u"chessInputWidget")
         self.horizontalLayout_29 = QHBoxLayout(self.chessInputWidget)
         self.horizontalLayout_29.setSpacing(10)
         self.horizontalLayout_29.setObjectName(u"horizontalLayout_29")
+        self.horizontalLayout_29.setContentsMargins(-1, 0, -1, 0)
         self.chessLabel_2 = QLabel(self.chessInputWidget)
         self.chessLabel_2.setObjectName(u"chessLabel_2")
         self.chessLabel_2.setMaximumSize(QSize(50, 16777215))
@@ -2819,6 +2819,7 @@ class Ui_MainWindow(object):
         self.chessModeWidget.setObjectName(u"chessModeWidget")
         self.horizontalLayout_31 = QHBoxLayout(self.chessModeWidget)
         self.horizontalLayout_31.setObjectName(u"horizontalLayout_31")
+        self.horizontalLayout_31.setContentsMargins(-1, 0, -1, 0)
         self.chessLabel_5 = QLabel(self.chessModeWidget)
         self.chessLabel_5.setObjectName(u"chessLabel_5")
         self.chessLabel_5.setMaximumSize(QSize(80, 16777215))
@@ -2903,6 +2904,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_32 = QHBoxLayout(self.chessThresholdWidget)
         self.horizontalLayout_32.setSpacing(10)
         self.horizontalLayout_32.setObjectName(u"horizontalLayout_32")
+        self.horizontalLayout_32.setContentsMargins(-1, 0, -1, 0)
         self.chessLabel_6 = QLabel(self.chessThresholdWidget)
         self.chessLabel_6.setObjectName(u"chessLabel_6")
         self.chessLabel_6.setMinimumSize(QSize(130, 0))
@@ -2933,6 +2935,108 @@ class Ui_MainWindow(object):
 
 
         self.verticalLayout_19.addWidget(self.chessThresholdWidget)
+
+        self.chessThresholdWidget_2 = QWidget(self.groupBox)
+        self.chessThresholdWidget_2.setObjectName(u"chessThresholdWidget_2")
+        self.horizontalLayout_40 = QHBoxLayout(self.chessThresholdWidget_2)
+        self.horizontalLayout_40.setSpacing(10)
+        self.horizontalLayout_40.setObjectName(u"horizontalLayout_40")
+        self.horizontalLayout_40.setContentsMargins(-1, 0, -1, 0)
+        self.chessLabel_8 = QLabel(self.chessThresholdWidget_2)
+        self.chessLabel_8.setObjectName(u"chessLabel_8")
+        self.chessLabel_8.setMinimumSize(QSize(130, 0))
+        self.chessLabel_8.setMaximumSize(QSize(130, 16777215))
+        self.chessLabel_8.setFont(font11)
+        self.chessLabel_8.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_40.addWidget(self.chessLabel_8)
+
+        self.horizontalSpacer_45 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_40.addItem(self.horizontalSpacer_45)
+
+        self.chess_difficultyLineEdit = QLineEdit(self.chessThresholdWidget_2)
+        self.chess_difficultyLineEdit.setObjectName(u"chess_difficultyLineEdit")
+        self.chess_difficultyLineEdit.setMinimumSize(QSize(100, 26))
+        self.chess_difficultyLineEdit.setMaximumSize(QSize(100, 16777215))
+
+        self.horizontalLayout_40.addWidget(self.chess_difficultyLineEdit)
+
+        self.horizontalSpacer_46 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_40.addItem(self.horizontalSpacer_46)
+
+        self.horizontalSpacer_47 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_40.addItem(self.horizontalSpacer_47)
+
+
+        self.verticalLayout_19.addWidget(self.chessThresholdWidget_2)
+
+        self.chessThresholdWidget_3 = QWidget(self.groupBox)
+        self.chessThresholdWidget_3.setObjectName(u"chessThresholdWidget_3")
+        self.horizontalLayout_42 = QHBoxLayout(self.chessThresholdWidget_3)
+        self.horizontalLayout_42.setSpacing(10)
+        self.horizontalLayout_42.setObjectName(u"horizontalLayout_42")
+        self.horizontalLayout_42.setContentsMargins(-1, 0, -1, 0)
+        self.chessLabel_9 = QLabel(self.chessThresholdWidget_3)
+        self.chessLabel_9.setObjectName(u"chessLabel_9")
+        self.chessLabel_9.setMinimumSize(QSize(130, 0))
+        self.chessLabel_9.setMaximumSize(QSize(130, 16777215))
+        self.chessLabel_9.setFont(font11)
+        self.chessLabel_9.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout_42.addWidget(self.chessLabel_9)
+
+        self.horizontalSpacer_48 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_42.addItem(self.horizontalSpacer_48)
+
+        self.chess_testLineEdit = QLineEdit(self.chessThresholdWidget_3)
+        self.chess_testLineEdit.setObjectName(u"chess_testLineEdit")
+        self.chess_testLineEdit.setMinimumSize(QSize(50, 26))
+        self.chess_testLineEdit.setMaximumSize(QSize(50, 16777215))
+
+        self.horizontalLayout_42.addWidget(self.chess_testLineEdit)
+
+        self.horizontalSpacer_49 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_42.addItem(self.horizontalSpacer_49)
+
+        self.chess_testBtn = QPushButton(self.chessThresholdWidget_3)
+        self.chess_testBtn.setObjectName(u"chess_testBtn")
+        self.chess_testBtn.setMinimumSize(QSize(64, 24))
+        self.chess_testBtn.setMaximumSize(QSize(64, 24))
+        self.chess_testBtn.setFont(font11)
+        self.chess_testBtn.setStyleSheet(u"QPushButton {\n"
+"	background-color: transparent;\n"
+"	border: 1px solid #cccccc;\n"
+"	border-radius: 8px;\n"
+"	padding: 0px\n"
+"}\n"
+"\n"
+"QPushButton:checked {\n"
+"	background-color: rgb(33, 100, 33);\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"	background-color: #666666;\n"
+"	color: white;\n"
+"	border: 1px solid #cccccc;\n"
+"}")
+        self.chess_testBtn.setCheckable(True)
+        self.chess_testBtn.setAutoExclusive(True)
+
+        self.horizontalLayout_42.addWidget(self.chess_testBtn)
+
+        self.horizontalSpacer_50 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_42.addItem(self.horizontalSpacer_50)
+
+
+        self.verticalLayout_19.addWidget(self.chessThresholdWidget_3)
 
 
         self.horizontalLayout_28.addWidget(self.chessRightWidget)
@@ -3087,7 +3191,7 @@ class Ui_MainWindow(object):
         self.drawKernelLabel.setText(QCoreApplication.translate("MainWindow", u"5", None))
         self.chessLabel_15.setText(QCoreApplication.translate("MainWindow", u"Merge Dis", None))
         self.drawMergeLabel.setText(QCoreApplication.translate("MainWindow", u"10", None))
-        self.chessLabel.setText("")
+        self.chessLabel.setText(QCoreApplication.translate("MainWindow", u"Not connected to Arduino", None))
         self.chess_initializeBtn.setText(QCoreApplication.translate("MainWindow", u"Initialize", None))
         self.chess_playBtn.setText(QCoreApplication.translate("MainWindow", u"Play", None))
         self.groupBox.setTitle(QCoreApplication.translate("MainWindow", u"Chess Settings", None))
@@ -3102,5 +3206,10 @@ class Ui_MainWindow(object):
         self.chess_mode_whiteBtn.setText(QCoreApplication.translate("MainWindow", u"White", None))
         self.chessLabel_6.setText(QCoreApplication.translate("MainWindow", u"Hand threshold :", None))
         self.chess_thresholdLineEdit.setText(QCoreApplication.translate("MainWindow", u"100", None))
+        self.chessLabel_8.setText(QCoreApplication.translate("MainWindow", u"Difficulty (0-20) :", None))
+        self.chess_difficultyLineEdit.setText(QCoreApplication.translate("MainWindow", u"10", None))
+        self.chessLabel_9.setText(QCoreApplication.translate("MainWindow", u"Test move :", None))
+        self.chess_testLineEdit.setText(QCoreApplication.translate("MainWindow", u"r-a8h1", None))
+        self.chess_testBtn.setText(QCoreApplication.translate("MainWindow", u"Go", None))
     # retranslateUi
 

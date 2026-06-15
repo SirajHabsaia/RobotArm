@@ -124,6 +124,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.chess_engine = None
         self.waiting_for_arduino = False  # Flag to indicate waiting for 'D' response
         self.verifying_robot_move = False  # Flag to indicate we're verifying robot's move (not user's)
+        self.chess_illegal_move = False  # True after the user makes an illegal/invalid placement
+        self.chess_result_text = None  # Holds the final "Gameover - ..." text after a game ends
+        self._offline_chess_engine = None  # Lazy Stockfish-free engine for test moves
         
         # Initialize trajectory planner (used for chess moves)
         self._setup_trajectory_planner()
@@ -1385,7 +1388,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # Connect play button
         self.chess_playBtn.clicked.connect(self._on_chess_play_toggle)
-        
+
+        # Connect test-move button (override checkable/autoexclusive from the UI
+        # so it behaves as a plain push button that fires on every click)
+        self.chess_testBtn.setCheckable(False)
+        self.chess_testBtn.clicked.connect(self._on_chess_test_move)
+
         # Set default mode label
         self._update_chess_mode_label()
     
@@ -1435,7 +1443,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Update button state
         self.detector_running = True
         self.chess_initializeBtn.setText("Stop")
-        
+
+        # Camera is now initialized; refresh the chess label
+        if not self.currently_playing_chess:
+            self.chess_result_text = None
+        self._update_chess_label()
+
         # Disable input controls while running
         self.chess_camidBtn.setEnabled(False)
         self.chess_camipBtn.setEnabled(False)
@@ -1455,7 +1468,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Update button state
         self.detector_running = False
         self.chess_initializeBtn.setText("Initialize")
-        
+
+        # Camera stopped; refresh the chess label
+        if not self.currently_playing_chess:
+            self.chess_result_text = None
+        self._update_chess_label()
+
         # Re-enable input controls
         self.chess_camidBtn.setEnabled(True)
         self.chess_camipBtn.setEnabled(True)
@@ -1561,24 +1579,55 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # board_state is 8x8 matrix of (class_label, confidence) tuples
         
         # Pass to chess manager for validation
-        if self.chess_manager:
-            validated = self.chess_manager.process_detected_state(board_state)
-            if validated:
-                # Check if this is robot's move being verified or user's move
-                if self.verifying_robot_move:
-                    # Robot's move verified, now it's user's turn
-                    print("[Chess] Robot move verified! User's turn.")
-                    self.verifying_robot_move = False
-                    # Detection continues normally for user's turn
-                elif self.currently_playing_chess and self.chess_engine and not self.waiting_for_arduino:
-                    # User just made a valid move, trigger robot response
-                    print("[Chess] User move detected! Robot's turn.")
-                    # Pause piece detection (robot's turn now)
+        if not self.chess_manager:
+            return
+
+        status = self.chess_manager.process_detected_state(board_state)
+
+        if status == 'moved':
+            # A legal move was recognized; clear any pending illegal-move warning
+            # and the red mismatch overlay, and draw arrows for the move.
+            self.chess_illegal_move = False
+            self._clear_board_mismatch()
+            self._show_move_arrows()
+
+            if self.verifying_robot_move:
+                # Robot's move verified, now it's user's turn
+                print("[Chess] Robot move verified! User's turn.")
+                self.verifying_robot_move = False
+                # Did the robot's move end the game?
+                if not self._check_chess_game_over():
+                    self._update_chess_label()
+            elif self.currently_playing_chess and self.chess_engine and not self.waiting_for_arduino:
+                # User just made a valid move
+                print("[Chess] User move detected! Robot's turn.")
+                # Did the user's move end the game?
+                if not self._check_chess_game_over():
+                    # Pause piece detection (robot's turn now) and respond
                     if self.detector_thread:
                         self.detector_thread.pause_detection = True
-                    
-                    # Update chess engine board and execute robot move
                     self._execute_robot_move()
+
+        elif status == 'invalid':
+            # New placement that matches no legal move. This happens either when
+            # the user makes an illegal move, or when the board changes while we
+            # are still verifying the robot's move (e.g. the player moved too
+            # soon). In both cases, mark the differing squares in red.
+            if self.currently_playing_chess:
+                self._show_board_mismatch()
+
+            # The "Illegal move" label is only meaningful on the user's turn.
+            if (self.currently_playing_chess and not self.waiting_for_arduino
+                    and not self.verifying_robot_move and not self.chess_illegal_move):
+                self.chess_illegal_move = True
+                self._update_chess_label()
+
+        elif status == 'nochange':
+            # Board is back at the expected position; clear the overlay/warning.
+            self._clear_board_mismatch()
+            if self.chess_illegal_move:
+                self.chess_illegal_move = False
+                self._update_chess_label()
     
     def _on_detector_error(self, error_msg):
         """Handle detector error."""
@@ -2860,10 +2909,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _update_com_button_states(self):
         """Update button enabled/disabled states based on connection status"""
         is_connected = bool(self.serial_connection and self.serial_connection.is_open)
-        
+
         self.connectBtn.setEnabled(not is_connected)
         self.disconnectBtn.setEnabled(is_connected)
         self.refreshBtn.setEnabled(not is_connected)
+
+        # Reflect the connection change on the chess label (drop any stale result)
+        if not self.currently_playing_chess:
+            self.chess_result_text = None
+        self._update_chess_label()
     
     def _on_reset_left(self):
         """Send reset left command and reset all sliders to default values"""
@@ -3204,6 +3258,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         self.detector_thread.pause_detection = False
                         self.verifying_robot_move = True  # We're verifying robot move, not waiting for user
                         print("[Chess] Resumed piece detection to verify robot move")
+                        self._update_chess_label()
                 
                 # Check for 'D' response during drawing
                 if self.draw_executing and 'D' in data:
@@ -3454,26 +3509,47 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             QMessageBox.warning(self, "Chess", "Please connect to Arduino first!")
             return
         
+        # Read Stockfish difficulty (skill level 0-20) from the line edit
+        skill_level = 10  # default if missing/invalid
+        difficulty_text = self.chess_difficultyLineEdit.text().strip()
+        if difficulty_text:
+            try:
+                skill_level = int(difficulty_text)
+                if not 0 <= skill_level <= 20:
+                    skill_level = max(0, min(20, skill_level))
+                    QMessageBox.warning(self, "Chess", f"Difficulty must be between 0 and 20. Clamped to {skill_level}.")
+            except ValueError:
+                QMessageBox.warning(self, "Chess", "Difficulty must be an integer between 0 and 20. Using default (10).")
+                skill_level = 10
+
         # Initialize ChessEngine
         try:
             stockfish_path = ".stockfish/stockfish-windows-x86-64-avx2.exe"
             self.chess_engine = ChessEngine(
                 stockfish_path=stockfish_path,
                 robot_color=robot_color,
-                skill_level=1
+                skill_level=skill_level
             )
-            print(f"[Chess] ChessEngine initialized - Robot plays: {'White' if robot_color == chess.WHITE else 'Black'}")
+            print(f"[Chess] ChessEngine initialized - Robot plays: {'White' if robot_color == chess.WHITE else 'Black'} (skill={skill_level})")
         except Exception as e:
             QMessageBox.critical(self, "Chess Error", f"Failed to initialize Stockfish:\\n{e}")
             print(f"[Chess] ERROR: {e}")
             return
         
+        # Start from a clean board and clear any state from a previous game
+        if self.chess_manager:
+            self.chess_manager.reset()
+        self._clear_board_mismatch()
+        self._clear_move_arrows()
+        self.chess_result_text = None
+        self.chess_illegal_move = False
+
         # Update game state
         self.currently_playing_chess = True
         self.chess_playBtn.setText("Forfeit")
-        
+
         print(f"[Chess] Game started! User: {'White' if user_color == chess.WHITE else 'Black'}, Robot: {'White' if robot_color == chess.WHITE else 'Black'}")
-        
+
         # If robot plays white (goes first), make immediate move
         if robot_color == chess.WHITE:
             print("[Chess] Robot plays White - making first move...")
@@ -3481,6 +3557,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if self.detector_thread:
                 self.detector_thread.pause_detection = True
             self._execute_robot_move()
+        else:
+            # User plays first
+            self._update_chess_label()
     
     def _forfeit_chess_game(self):
         """Forfeit current game and reset."""
@@ -3505,8 +3584,317 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if self.chess_manager:
             self.chess_manager.reset()
         
+        # Forfeiting is a manual reset, not a game result
+        self.chess_result_text = None
+        self.chess_illegal_move = False
+        self._clear_board_mismatch()
+        self._clear_move_arrows()
+        self._update_chess_label()
+
         print("[Chess] Game reset complete")
-    
+
+    def _show_board_mismatch(self):
+        """Highlight squares where the detected board differs from the last good position."""
+        if not self.chess_manager:
+            return
+        squares = self.chess_manager.get_mismatch_squares()
+        if getattr(self, 'chess_board', None):
+            self.chess_board.set_highlighted_squares(squares)
+
+    def _clear_board_mismatch(self):
+        """Remove the red mismatch overlay from the virtual board."""
+        if getattr(self, 'chess_board', None):
+            self.chess_board.clear_highlights()
+
+    def _show_move_arrows(self):
+        """Draw arrows on the virtual board for the last verified move (both
+        the king and rook arrows in the case of castling)."""
+        if not self.chess_manager:
+            return
+        arrows = self.chess_manager.get_last_move_arrows()
+        if getattr(self, 'chess_board', None):
+            self.chess_board.set_move_arrows(arrows)
+
+    def _clear_move_arrows(self):
+        """Remove the move arrows from the virtual board."""
+        if getattr(self, 'chess_board', None):
+            self.chess_board.clear_move_arrows()
+
+    def _update_chess_label(self):
+        """Update chessLabel to reflect the current connection/game state."""
+        if not hasattr(self, 'chessLabel'):
+            return
+
+        # --- Idle (no game in progress) ---
+        if not self.currently_playing_chess:
+            if self.chess_result_text:
+                self.chessLabel.setText(self.chess_result_text)
+            elif not (self.serial_connection and self.serial_connection.is_open):
+                self.chessLabel.setText("Not connected to Arduino")
+            elif not self.detector_running:
+                self.chessLabel.setText("Camera not initialized")
+            else:
+                self.chessLabel.setText("Press Play to start")
+            return
+
+        board = self.chess_manager.board if self.chess_manager else None
+
+        # --- Robot is moving ---
+        if self.waiting_for_arduino:
+            self.chessLabel.setText("Waiting for robot")
+            return
+        if self.verifying_robot_move:
+            self.chessLabel.setText("Waiting for robot - Verifying move")
+            return
+
+        # --- User's turn (optionally in check and/or after an illegal move) ---
+        parts = ["Your turn"]
+        if board is not None and board.is_check():
+            parts.append("Check")
+        if self.chess_illegal_move:
+            parts.append("Illegal move")
+        self.chessLabel.setText(" - ".join(parts))
+
+    def _check_chess_game_over(self):
+        """If the game is over, end it with the appropriate result. Returns True if ended."""
+        board = self.chess_manager.board if self.chess_manager else None
+        if board is None or not board.is_game_over():
+            return False
+
+        robot_won = None  # None => draw
+        if board.is_checkmate():
+            # The side to move has been checkmated and lost.
+            robot_color = self.chess_engine.robot_color if self.chess_engine else None
+            if robot_color is not None and board.turn == robot_color:
+                result = "Gameover - You win"
+                robot_won = False
+            else:
+                result = "Gameover - Robot wins"
+                robot_won = True
+        else:
+            # Stalemate, insufficient material, repetition, 50/75-move rule, etc.
+            result = "Gameover - Draw"
+
+        self._end_chess_game(result, robot_won)
+        return True
+
+    def _end_chess_game(self, result_text, robot_won=None):
+        """End the game with a result, display it, and return to idle state.
+
+        Unlike a forfeit, the final board is left on screen and the result text
+        stays on the label until a new game is started.
+
+        Args:
+            result_text: Label/dialog text, e.g. "Gameover - Robot wins".
+            robot_won: True if the robot won, False if it lost, None for a draw.
+                       Drives the robot's winning/losing celebration trajectory.
+        """
+        print(f"[Chess] {result_text}")
+        self.chess_result_text = result_text
+
+        if self.chess_engine:
+            self.chess_engine.close()
+            self.chess_engine = None
+
+        self.currently_playing_chess = False
+        self.waiting_for_arduino = False
+        self.verifying_robot_move = False
+        self.chess_illegal_move = False
+        self.chess_playBtn.setText("Play")
+        self._clear_board_mismatch()
+
+        # Resume piece detection (game is no longer driving the robot)
+        if self.detector_thread:
+            self.detector_thread.pause_detection = False
+
+        self._update_chess_label()
+
+        # Send the robot a celebration (win) or consolation (loss) gesture.
+        if robot_won is True:
+            self._send_celebration_trajectory(won=True)
+        elif robot_won is False:
+            self._send_celebration_trajectory(won=False)
+
+        # Announce the result with a dialog box.
+        self._show_game_over_dialog(result_text)
+
+    def _show_game_over_dialog(self, result_text):
+        """Show a modal dialog announcing the game result."""
+        if "You win" in result_text:
+            message = "Checkmate — you win! \U0001F389"
+        elif "Robot wins" in result_text:
+            message = "Checkmate — the robot wins."
+        else:
+            message = "The game is a draw."
+        QMessageBox.information(self, "Game Over", message)
+
+    def _send_celebration_trajectory(self, won):
+        """Send a winning/losing gesture as a Cartesian circular arc, optimized
+        with TOPPRA so the motor speed/acceleration limits are respected.
+
+        The gesture sweeps the end-effector back and forth along part of a
+        circle centred on the base axis (origin), at a fixed Z and a constant
+        radius (so x^2 + y^2 stays constant and only the base angle changes).
+        The wrist tilt mu is fixed at +30 deg for a win or -90 deg for a loss.
+
+        Because mu also affects the end-effector position, the circle is centred
+        on the *actual* pose reached by taking the default resting arm joints
+        (theta, alpha, beta) and applying the celebration mu: forward kinematics
+        of that joint set gives the true (x, y, z) to oscillate around.
+        """
+        if not (self.serial_connection and self.serial_connection.is_open):
+            print("[Chess] Cannot send celebration trajectory: no serial connection")
+            return
+
+        try:
+            home = ChessEngine.HOME_POSITION
+            target_mu = np.deg2rad(30.0 if won else -90.0)
+
+            # Default resting arm joints (the pose the robot returns to between moves).
+            rest_mu = ChessEngine.mu_func(*home)
+            _, alpha_r, beta_r, _ = inverse_kinematics(home[0], home[1], home[2], rest_mu)
+
+            # Keep those arm joints but apply the celebration wrist tilt, then use
+            # forward kinematics to find the true centre point of the gesture.
+            gamma = mu_to_gamma(target_mu, alpha_r)
+            cx, cy, cz = direct_kinematics(0.0, alpha_r, beta_r, gamma)
+
+            radius = float(np.hypot(cx, cy))   # x^2 + y^2 held constant
+            phi0 = float(np.arctan2(cy, cx))   # base angle of the centre point
+
+            amplitude = np.deg2rad(30.0)  # how far along the arc to sweep, each side
+            cycles = 2                    # back-and-forth waves
+            T_duration = 4.0              # arbitrary path-parameter span (TOPPRA re-times)
+
+            def trajectory_func(t):
+                # Sweep the polar angle; x, y from trigonometry on the fixed-radius
+                # circle, Z held constant.
+                phi = phi0 + amplitude * np.sin(2.0 * np.pi * cycles * t / T_duration)
+                return [radius * np.cos(phi), radius * np.sin(phi), cz]
+
+            # Plan through TOPPRA with a fixed wrist tilt (mu) for every waypoint.
+            planner = self.trajectory_planner
+            original_mu_func = planner.mu_func
+            try:
+                planner.mu_func = lambda x, y, z, _m=target_mu: _m
+                planned_waypoints = planner.plan_trajectory(
+                    trajectory_func, T_duration, gripper_actions={}
+                )
+            finally:
+                planner.mu_func = original_mu_func
+
+            # Build the Arduino waypoint command (same format as a chess move).
+            time_us = round(planner.output_waypoint_dt * 1e6)
+            output_parts = [f"wn{planner.output_waypoint_count}d{time_us}"]
+            for theta, alpha, beta, mu, gripper in planned_waypoints:
+                output_parts.append(
+                    f"t{theta:.1f}a{alpha:.1f}b{beta:.1f}m{np.rad2deg(mu):.1f}g{gripper:.1f}"
+                )
+            command = ",".join(output_parts)
+
+            pose = "winning" if won else "losing"
+            print(f"[Chess] Sending {pose} trajectory ({planner.output_waypoint_count} waypoints, "
+                  f"mu={np.rad2deg(target_mu):.0f}deg, centre=({cx:.0f},{cy:.0f},{cz:.0f}), "
+                  f"T_opt={planner.total_time:.1f}s)...")
+            self.serial_connection.write((command + '\n').encode('utf-8'))
+        except Exception as e:
+            print(f"[Chess] ERROR sending celebration trajectory: {e}")
+            import traceback
+            traceback.print_exc()
+
+    # Maps the test-move piece letter to a chess piece type
+    PIECE_LETTER_TO_TYPE = {
+        'p': chess.PAWN,
+        'r': chess.ROOK,
+        'b': chess.BISHOP,
+        'n': chess.KNIGHT,
+        'k': chess.KING,
+        'q': chess.QUEEN,
+    }
+
+    def _parse_test_move(self, text):
+        """Parse a test-move string like 'r-a1h2'.
+
+        Returns (piece_type, from_square, to_square) or None if it can't be
+        parsed (unknown piece letter, bad format, or off-board squares).
+        """
+        if not text or '-' not in text:
+            return None
+        piece_part, _, move_part = text.partition('-')
+        piece_part = piece_part.strip()
+        move_part = move_part.strip()
+
+        if piece_part not in self.PIECE_LETTER_TO_TYPE:
+            return None
+        if len(move_part) != 4:
+            return None
+
+        from_square, to_square = move_part[:2], move_part[2:]
+        for sq in (from_square, to_square):
+            if sq[0] not in 'abcdefgh' or sq[1] not in '12345678':
+                return None
+        if from_square == to_square:
+            return None
+
+        return self.PIECE_LETTER_TO_TYPE[piece_part], from_square, to_square
+
+    def _get_offline_chess_engine(self):
+        """Return a cached Stockfish-free ChessEngine for coordinate/trajectory use."""
+        if self._offline_chess_engine is None:
+            self._offline_chess_engine = ChessEngine.create_offline()
+        return self._offline_chess_engine
+
+    def _plan_trajectory_command(self, trajectory_data):
+        """Run TOPPRA on a trajectory_data dict and return the Arduino command string."""
+        self.trajectory_planner.gripper_actions = trajectory_data['gripper_actions']
+        planned_waypoints = self.trajectory_planner.plan_trajectory(
+            trajectory_data['trajectory_func'],
+            trajectory_data['T_duration']
+        )
+        time_us = round(self.trajectory_planner.output_waypoint_dt * 1e6)
+        output_parts = [f"wn{self.trajectory_planner.output_waypoint_count}d{time_us}"]
+        for theta, alpha, beta, mu, gripper in planned_waypoints:
+            output_parts.append(f"t{theta:.1f}a{alpha:.1f}b{beta:.1f}m{np.rad2deg(mu):.1f}g{gripper:.1f}")
+        return ",".join(output_parts)
+
+    def _on_chess_test_move(self):
+        """Execute the manual test move described in chess_testLineEdit."""
+        # Require a serial connection to drive the robot
+        if not self.serial_connection or not self.serial_connection.is_open:
+            QMessageBox.warning(self, "Test Move", "Please connect to Arduino first!")
+            return
+
+        # Avoid interfering with an in-progress game
+        if self.currently_playing_chess:
+            QMessageBox.warning(self, "Test Move", "Cannot run a test move during a game. Forfeit first.")
+            return
+
+        raw_text = self.chess_testLineEdit.text().strip()
+        parsed = self._parse_test_move(raw_text.lower())
+        if parsed is None:
+            QMessageBox.critical(
+                self, "Invalid Move",
+                f"Could not parse '{raw_text}'.\n\n"
+                "Expected format: <piece>-<from><to>, e.g. 'r-a1h2'.\n"
+                "Piece letter must be one of: p (pawn), r (rook), b (bishop), "
+                "n (knight), k (king), q (queen)."
+            )
+            return
+
+        piece_type, from_square, to_square = parsed
+
+        try:
+            engine = self.chess_engine or self._get_offline_chess_engine()
+            trajectory_data = engine.generate_simple_move_trajectory(piece_type, from_square, to_square)
+            command = self._plan_trajectory_command(trajectory_data)
+
+            print(f"[Chess] Test move: {trajectory_data['description']} ({len(command)} bytes)")
+            self.serial_connection.write((command + '\n').encode('utf-8'))
+        except Exception as e:
+            QMessageBox.critical(self, "Test Move Error", f"Failed to execute test move:\n{e}")
+            import traceback
+            traceback.print_exc()
+
     def _execute_robot_move(self):
         """Generate and execute robot's chess move."""
         if not self.chess_engine:
@@ -3522,9 +3910,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             best_move = self.chess_engine.get_best_move(time_limit=0.5)
             
             if best_move is None:
+                # Robot has no legal move -> game is over (checkmate or stalemate)
                 print("[Chess] Game over!")
-                QMessageBox.information(self, "Chess", "Game Over!")
-                self._forfeit_chess_game()
+                if not self._check_chess_game_over():
+                    self._end_chess_game("Gameover - Draw")
                 return
             
             print(f"[Chess] Robot move: {best_move.uci()}")
@@ -3565,20 +3954,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 # Set flag to wait for 'D' response
                 self.waiting_for_arduino = True
                 print("[Chess] Waiting for Arduino to complete move (waiting for 'D')...")
+                self._update_chess_label()
             else:
                 print("[Chess] ERROR: Serial connection not available")
                 # Resume detection if send failed
                 if self.detector_thread:
                     self.detector_thread.pause_detection = False
-        
+                self._update_chess_label()
+
         except Exception as e:
             print(f"[Chess] ERROR executing robot move: {e}")
             import traceback
             traceback.print_exc()
-            
+
             # Resume detection on error
             if self.detector_thread:
                 self.detector_thread.pause_detection = False
+            self._update_chess_label()
     
     def changeEvent(self, event):
         """Handle window state changes to prevent visual freezing."""

@@ -30,7 +30,7 @@ class ChessEngine:
     
     # Pickup heights per piece type (in mm)
     PICKUP_HEIGHTS = {
-        chess.PAWN: 17.0,
+        chess.PAWN: 20.0,
         chess.KNIGHT: 20.0,
         chess.BISHOP: 28.0,
         chess.ROOK: 22.0,
@@ -49,7 +49,7 @@ class ChessEngine:
     
     # Gripper closed angles per piece type (activation %)
     GRIPPER_CLOSED_ANGLES = {
-        chess.PAWN: 90.0,
+        chess.PAWN: 95.0,
         chess.KNIGHT: 100.0,
         chess.BISHOP: 91.0,
         chess.ROOK: 82.0,
@@ -104,7 +104,35 @@ class ChessEngine:
         
         print(f"[ChessEngine] Initialized Stockfish (skill={skill_level})")
         print(f"[ChessEngine] Robot plays: {'White' if robot_color == chess.WHITE else 'Black'}")
-    
+
+    @classmethod
+    def create_offline(cls,
+                       robot_color: chess.Color = chess.WHITE,
+                       file_a_y: float = FILE_A_Y,
+                       file_h_y: float = FILE_H_Y,
+                       rank_1_x: float = RANK_1_X,
+                       rank_8_x: float = RANK_8_X) -> "ChessEngine":
+        """
+        Create a ChessEngine WITHOUT launching Stockfish.
+
+        Useful for coordinate/trajectory utilities (e.g. manual test moves) that
+        only need square-to-coordinate mapping and trajectory building, not move
+        search.
+        """
+        self = cls.__new__(cls)
+        self.robot_color = robot_color
+        self.engine = None
+        self.board = chess.Board()
+        self.file_to_y = {
+            chr(ord('a') + i): file_a_y + (file_h_y - file_a_y) * i / 7
+            for i in range(8)
+        }
+        self.rank_to_x = {
+            str(1 + i): rank_1_x + (rank_8_x - rank_1_x) * i / 7
+            for i in range(8)
+        }
+        return self
+
     def update_board(self, fen: str):
         """
         Update internal board state from FEN string.
@@ -210,6 +238,53 @@ class ChessEngine:
             'gripper_actions': gripper_actions,
             'description': description,
             'move': move
+        }
+
+    def generate_simple_move_trajectory(self,
+                                        piece_type: int,
+                                        from_square: str,
+                                        to_square: str,
+                                        home_position: Optional[Tuple[float, float, float]] = None) -> Dict:
+        """
+        Generate a trajectory for a single pick-and-place move of a given piece
+        type, independent of any board state.
+
+        Unlike ``generate_move_trajectory`` this does not look at the board (no
+        capture/castling handling): it simply picks up the piece at
+        ``from_square`` and places it on ``to_square``, using the pickup height
+        and gripper activation of the supplied piece type. Intended for manual
+        test moves.
+
+        Args:
+            piece_type: chess piece type (chess.PAWN, chess.ROOK, ...)
+            from_square: source square, e.g. 'a1'
+            to_square: destination square, e.g. 'h2'
+            home_position: starting position, defaults to HOME_POSITION
+
+        Returns:
+            Same dict shape as ``generate_move_trajectory`` (with 'move' = None).
+        """
+        if home_position is None:
+            home_position = self.HOME_POSITION
+
+        grip = self.GRIPPER_CLOSED_ANGLES.get(piece_type, self.GRIPPER_CLOSED_ANGLES[chess.PAWN])
+        operations = [{
+            'pick': self.square_to_coords(from_square, piece_type),
+            'place': self.square_to_coords(to_square, piece_type),
+            'grip': grip,
+        }]
+
+        trajectory_func, T_duration, gripper_actions = self._build_trajectory(operations, home_position)
+        description = f"Test move {chess.piece_name(piece_type)} {from_square}->{to_square}"
+
+        print(f"[ChessEngine] {description} (T={T_duration}s, pick z={operations[0]['pick'][2]:.1f}, grip={grip}°)")
+
+        return {
+            'trajectory_func': trajectory_func,
+            'T_duration': T_duration,
+            'gripper_actions': gripper_actions,
+            'description': description,
+            'move': None,
         }
 
     def _decompose_move(self, move: chess.Move) -> Tuple[List[Dict], str]:

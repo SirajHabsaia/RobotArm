@@ -23,7 +23,7 @@ float h = 150.0;
 // DXL CONFIGURATION
 // ===========================
 int min_position_ax12 = 0;
-int max_position_ax12 = 260;
+int max_position_ax12 = 170;
 int min_position_mx28 = 50;
 int def_position_mx28 = 1520;
 int max_position_mx28 = 2900;

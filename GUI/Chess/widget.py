@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import QWidget, QSizePolicy
-from PySide6.QtCore import Qt, QRect, QPoint, QSize
-from PySide6.QtGui import QPainter, QColor, QPixmap, QPen
+from PySide6.QtCore import Qt, QRect, QPoint, QSize, QPointF
+from PySide6.QtGui import QPainter, QColor, QPixmap, QPen, QPolygonF
 from pathlib import Path
+import math
 
 
 class ChessWidget(QWidget):
@@ -54,6 +55,14 @@ class ChessWidget(QWidget):
         
         # Board state: 8x8 matrix where '' is empty, 'wp' is white pawn, etc.
         self.board = [row[:] for row in self.INITIAL_BOARD]  # Deep copy
+
+        # Squares (row, col) to highlight with a translucent red overlay,
+        # e.g. to mark the difference of an illegal/unverified board state.
+        self.highlighted_squares = set()
+
+        # Arrows marking the last played move(s): list of (from_row, from_col,
+        # to_row, to_col). Castling produces two arrows (king and rook).
+        self.move_arrows = []
         
         # Load piece images
         self.piece_images = {}  # Original high-res images
@@ -191,6 +200,18 @@ class ChessWidget(QWidget):
                 piece = self.board[row][col]
                 if piece:
                     self._draw_piece(painter, piece, row, col, square_size)
+
+        # Draw move arrows (on top of pieces)
+        if self.move_arrows:
+            self._draw_move_arrows(painter, square_size)
+
+        # Draw translucent red overlay on highlighted squares (on top of pieces)
+        if self.highlighted_squares:
+            highlight_color = QColor(255, 0, 0, 110)  # semi-transparent red
+            for (row, col) in self.highlighted_squares:
+                if 0 <= row < 8 and 0 <= col < 8:
+                    x, y = self._square_to_coords(row, col)
+                    painter.fillRect(x, y, square_size, square_size, highlight_color)
     
     def _draw_piece(self, painter, piece_code, row, col, square_size):
         """Draw a piece at the specified board position using cached scaled image."""
@@ -233,3 +254,70 @@ class ChessWidget(QWidget):
         if len(board) == 8 and all(len(row) == 8 for row in board):
             self.board = [row[:] for row in board]
             self.update()
+
+    def set_highlighted_squares(self, squares):
+        """Highlight the given squares with a translucent red overlay.
+
+        Args:
+            squares: iterable of (row, col) tuples (row 0 = rank 8, col 0 = file a)
+        """
+        new_squares = set(squares)
+        if new_squares != self.highlighted_squares:
+            self.highlighted_squares = new_squares
+            self.update()
+
+    def clear_highlights(self):
+        """Remove any highlight overlay from the board."""
+        if self.highlighted_squares:
+            self.highlighted_squares = set()
+            self.update()
+
+    def set_move_arrows(self, arrows):
+        """Show arrows for the last played move.
+
+        Args:
+            arrows: iterable of (from_row, from_col, to_row, to_col) tuples
+                    (row 0 = rank 8, col 0 = file a). Castling passes two arrows.
+        """
+        self.move_arrows = list(arrows)
+        self.update()
+
+    def clear_move_arrows(self):
+        """Remove the move arrows from the board."""
+        if self.move_arrows:
+            self.move_arrows = []
+            self.update()
+
+    def _draw_move_arrows(self, painter, square_size):
+        """Draw all current move arrows from square center to square center."""
+        painter.save()
+        color = QColor(30, 120, 220, 200)  # semi-transparent blue
+        pen = QPen(color, max(3, square_size // 10))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(color)
+
+        half = square_size / 2.0
+        head = square_size * 0.34  # arrowhead length
+        for (from_row, from_col, to_row, to_col) in self.move_arrows:
+            fx, fy = self._square_to_coords(from_row, from_col)
+            tx, ty = self._square_to_coords(to_row, to_col)
+            x1, y1 = fx + half, fy + half
+            x2, y2 = tx + half, ty + half
+
+            angle = math.atan2(y2 - y1, x2 - x1)
+
+            # End the shaft just short of the tip so the head isn't doubled up
+            shaft_x = x2 - head * 0.55 * math.cos(angle)
+            shaft_y = y2 - head * 0.55 * math.sin(angle)
+            painter.drawLine(QPointF(x1, y1), QPointF(shaft_x, shaft_y))
+
+            # Arrowhead triangle at the destination
+            left = QPointF(x2 - head * math.cos(angle - math.pi / 6),
+                           y2 - head * math.sin(angle - math.pi / 6))
+            right = QPointF(x2 - head * math.cos(angle + math.pi / 6),
+                            y2 - head * math.sin(angle + math.pi / 6))
+            painter.drawPolygon(QPolygonF([QPointF(x2, y2), left, right]))
+
+        painter.restore()

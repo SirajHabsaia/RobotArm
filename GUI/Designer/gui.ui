@@ -5172,11 +5172,11 @@ QPushButton:hover {
                 </property>
                 <property name="font">
                  <font>
-                  <pointsize>22</pointsize>
+                  <pointsize>16</pointsize>
                  </font>
                 </property>
                 <property name="text">
-                 <string/>
+                 <string>Not connected to Arduino</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -5397,11 +5397,20 @@ QGroupBox::title {
                <string>Chess Settings</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_19">
+               <property name="spacing">
+                <number>3</number>
+               </property>
                <item>
                 <widget class="QWidget" name="chessInputWidget" native="true">
                  <layout class="QHBoxLayout" name="horizontalLayout_29">
                   <property name="spacing">
                    <number>10</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
                   </property>
                   <item>
                    <widget class="QLabel" name="chessLabel_2">
@@ -5659,6 +5668,12 @@ QPushButton:hover {
                <item>
                 <widget class="QWidget" name="chessModeWidget" native="true">
                  <layout class="QHBoxLayout" name="horizontalLayout_31">
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="chessLabel_5">
                     <property name="maximumSize">
@@ -5828,6 +5843,12 @@ QPushButton:hover {
                   <property name="spacing">
                    <number>10</number>
                   </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
                   <item>
                    <widget class="QLabel" name="chessLabel_6">
                     <property name="minimumSize">
@@ -5902,6 +5923,256 @@ QPushButton:hover {
                   </item>
                   <item>
                    <spacer name="horizontalSpacer_35">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QWidget" name="chessThresholdWidget_2" native="true">
+                 <layout class="QHBoxLayout" name="horizontalLayout_40">
+                  <property name="spacing">
+                   <number>10</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QLabel" name="chessLabel_8">
+                    <property name="minimumSize">
+                     <size>
+                      <width>130</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>130</width>
+                      <height>16777215</height>
+                     </size>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>12</pointsize>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Difficulty (0-20) :</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_45">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <widget class="QLineEdit" name="chess_difficultyLineEdit">
+                    <property name="minimumSize">
+                     <size>
+                      <width>100</width>
+                      <height>26</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>100</width>
+                      <height>16777215</height>
+                     </size>
+                    </property>
+                    <property name="text">
+                     <string>10</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_46">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_47">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QWidget" name="chessThresholdWidget_3" native="true">
+                 <layout class="QHBoxLayout" name="horizontalLayout_42">
+                  <property name="spacing">
+                   <number>10</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QLabel" name="chessLabel_9">
+                    <property name="minimumSize">
+                     <size>
+                      <width>130</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>130</width>
+                      <height>16777215</height>
+                     </size>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>12</pointsize>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Test move :</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_48">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <widget class="QLineEdit" name="chess_testLineEdit">
+                    <property name="minimumSize">
+                     <size>
+                      <width>50</width>
+                      <height>26</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>50</width>
+                      <height>16777215</height>
+                     </size>
+                    </property>
+                    <property name="text">
+                     <string>r-a8h1</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_49">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="chess_testBtn">
+                    <property name="minimumSize">
+                     <size>
+                      <width>64</width>
+                      <height>24</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>64</width>
+                      <height>24</height>
+                     </size>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>12</pointsize>
+                     </font>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QPushButton {
+	background-color: transparent;
+	border: 1px solid #cccccc;
+	border-radius: 8px;
+	padding: 0px
+}
+
+QPushButton:checked {
+	background-color: rgb(33, 100, 33);
+	color: white;
+	border: 1px solid #cccccc;
+}
+
+QPushButton:hover {
+	background-color: #666666;
+	color: white;
+	border: 1px solid #cccccc;
+}</string>
+                    </property>
+                    <property name="text">
+                     <string>Go</string>
+                    </property>
+                    <property name="checkable">
+                     <bool>true</bool>
+                    </property>
+                    <property name="autoExclusive">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_50">
                     <property name="orientation">
                      <enum>Qt::Orientation::Horizontal</enum>
                     </property>

@@ -60,6 +60,12 @@ class ChessManager:
         
         # Store previous detected state to avoid reprocessing same state
         self.previous_detected_state = None
+
+        # Most recent detected color matrix (used to highlight invalid states)
+        self.last_detected_colors = None
+
+        # Most recently applied move (used to draw move arrows)
+        self.last_move = None
         
         # Update widget to show initial position
         self.chess_widget.set_board_state(self.current_state)
@@ -227,50 +233,61 @@ class ChessManager:
         
         return None
     
-    def process_detected_state(self, detected_state: List[List[Tuple[str, float]]]) -> bool:
+    def process_detected_state(self, detected_state: List[List[Tuple[str, float]]]) -> str:
         """
         Process a detected board state from the board detector.
-        
+
         Args:
             detected_state: 8x8 matrix of (class_label, confidence) tuples
                            where class_label is 'black', 'empty', or 'white'
-        
+
         Returns:
-            True if state was validated and updated, False otherwise
+            A status string describing the detection:
+                - 'moved'     : a legal move was recognized and applied
+                - 'invalid'   : a new placement that matches no legal move (illegal)
+                - 'nochange'  : the board matches the current expected position
+                                (e.g. the starting position, or pieces put back)
+                - 'unchanged' : identical to the previously processed frame
         """
         # Convert detected state to color-only matrix
         detected_colors = self._get_color_matrix(detected_state)
-        
-        # Check if this state is different from previous detection
+        self.last_detected_colors = detected_colors
+
+        # Ignore frames identical to the previous detection
         if self.previous_detected_state is not None:
             if self._states_are_equal(self.previous_detected_state, detected_colors):
-                # Same state as before, no need to process
-                return False
-        
+                return 'unchanged'
+
         # Store this state as the new previous state
         self.previous_detected_state = [row[:] for row in detected_colors]
-        
-        # New state detected, try to find a legal move
+
+        # If the detected board matches the current (expected) position, no move
+        # was made (e.g. the starting position, or pieces put back where they were).
+        if self._board_matches_colors(self.board, detected_colors):
+            return 'nochange'
+
+        # New state detected, try to find a legal move that explains it
         move = self._find_matching_move(detected_colors)
-        
+
         if move is not None:
             # Valid move found!
             print(f"[ChessManager] ✓ Valid move: {move.uci()}")
-            
+
             # Apply move to board
             self.board.push(move)
-            
+            self.last_move = move
+
             # Update current state
             self.current_state = self._board_to_matrix()
-            
+
             # Update chess widget
             self.chess_widget.set_board_state(self.current_state)
-            
-            return True
+
+            return 'moved'
         else:
-            # Invalid or unclear move
+            # A genuinely new placement that matches no legal move
             print(f"[ChessManager] ✗ Invalid board state detected")
-            return False
+            return 'invalid'
     
     def _get_color_matrix(self, detected_state: List[List[Tuple[str, float]]]) -> List[List[Optional[bool]]]:
         """
@@ -371,11 +388,90 @@ class ChessManager:
         
         return True
     
+    def get_mismatch_squares(self, detected_colors: Optional[List[List[Optional[bool]]]] = None) -> List[Tuple[int, int]]:
+        """
+        Return the squares where a detected color matrix differs from the
+        current (expected) board position.
+
+        Useful for highlighting an illegal / unverified board state: it marks
+        every square whose detected occupancy/color does not match the last
+        known-good position.
+
+        Args:
+            detected_colors: 8x8 color matrix (True=white, False=black, None=empty).
+                             Defaults to the most recently detected state.
+
+        Returns:
+            List of (row, col) widget coordinates (row 0 = rank 8, col 0 = file a).
+        """
+        if detected_colors is None:
+            detected_colors = self.last_detected_colors
+        if detected_colors is None:
+            return []
+
+        mismatches = []
+        for rank in range(7, -1, -1):  # 7 down to 0
+            row = 7 - rank  # Convert to matrix row (0 = rank 8)
+            for file in range(8):
+                square = chess.square(file, rank)
+                piece = self.board.piece_at(square)
+                detected = detected_colors[row][file]
+
+                if detected is None:
+                    matches = piece is None
+                elif detected is True:
+                    matches = piece is not None and piece.color == chess.WHITE
+                else:  # detected is False
+                    matches = piece is not None and piece.color == chess.BLACK
+
+                if not matches:
+                    mismatches.append((row, file))
+
+        return mismatches
+
+    def get_last_move_arrows(self) -> List[Tuple[int, int, int, int]]:
+        """
+        Return arrows describing the most recently applied move.
+
+        Each arrow is (from_row, from_col, to_row, to_col) in widget coordinates
+        (row 0 = rank 8, col 0 = file a). A normal move yields one arrow;
+        castling yields two (the king and the rook).
+
+        Returns:
+            List of arrow tuples (empty if no move has been applied yet).
+        """
+        move = self.last_move
+        if move is None:
+            return []
+
+        def to_rc(square):
+            return (7 - chess.square_rank(square), chess.square_file(square))
+
+        from_rc = to_rc(move.from_square)
+        to_rc_ = to_rc(move.to_square)
+        arrows = [(from_rc[0], from_rc[1], to_rc_[0], to_rc_[1])]
+
+        # Castling: the move is already applied, so the king now sits on to_square.
+        piece = self.board.piece_at(move.to_square)
+        file_delta = chess.square_file(move.to_square) - chess.square_file(move.from_square)
+        if piece is not None and piece.piece_type == chess.KING and abs(file_delta) == 2:
+            kingside = file_delta > 0
+            rank = chess.square_rank(move.from_square)
+            rook_from = chess.square(7 if kingside else 0, rank)
+            rook_to = chess.square(5 if kingside else 3, rank)
+            rf = to_rc(rook_from)
+            rt = to_rc(rook_to)
+            arrows.append((rf[0], rf[1], rt[0], rt[1]))
+
+        return arrows
+
     def reset(self):
         """Reset board to starting position."""
         self.board = chess.Board()
         self.current_state = self._board_to_matrix()
         self.previous_detected_state = None
+        self.last_detected_colors = None
+        self.last_move = None
         self.chess_widget.set_board_state(self.current_state)
     
     def get_fen(self) -> str:
