@@ -23,7 +23,19 @@ import serial.tools.list_ports
 import numpy as np
 import cv2
 import os
+import sys
 from kinematics import direct_kinematics, inverse_kinematics, gamma_to_mu, mu_to_gamma
+
+
+def _bundle_base_dir() -> Path:
+    """Root directory for bundled runtime assets (e.g. the .stockfish binary).
+
+    Frozen (PyInstaller onedir): the unpacked bundle dir (sys._MEIPASS).
+    Dev run: the repo root, i.e. the parent of the GUI/ package.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
 
 
 class BoardDetectorThread(QThread):
@@ -1525,8 +1537,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 QMessageBox.critical(self, "Invalid Input", "Please enter a video file path")
                 return None
             
-            # Convert to absolute path if relative
-            video_path = Path(input_text)
+            # Expand ~ / env vars, then resolve relative paths against Chess/.
+            video_path = Path(os.path.expandvars(input_text)).expanduser()
             if not video_path.is_absolute():
                 video_path = Path(__file__).parent / "Chess" / video_path
             
@@ -3524,7 +3536,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Initialize ChessEngine
         try:
-            stockfish_path = ".stockfish/stockfish-windows-x86-64-avx2.exe"
+            stockfish_path = str(_bundle_base_dir() / ".stockfish" / "stockfish-ubuntu-x86-64")
+            # Packaging can drop the executable bit on bundled binaries; restore it.
+            try:
+                os.chmod(stockfish_path, 0o755)
+            except OSError:
+                pass
             self.chess_engine = ChessEngine(
                 stockfish_path=stockfish_path,
                 robot_color=robot_color,

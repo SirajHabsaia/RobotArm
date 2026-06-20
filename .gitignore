@@ -49,6 +49,7 @@ Arduino/**/*.gitignore
 
 # cad for gui
 *.step
+*.STEP
 
 # ai model
 *.pth

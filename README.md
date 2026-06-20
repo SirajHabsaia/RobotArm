@@ -151,13 +151,49 @@ The training script writes `best_model.pth` in [AI/train/](AI/train/).
 
 ## Packaging the GUI
 
-A PyInstaller spec is provided:
+A cross-platform PyInstaller spec is provided. It produces an "onedir" bundle:
+one launcher executable plus an `_internal/` folder containing all packages and
+assets (3D models, Stockfish binary, CNN weights, chess piece images).
+
+On Linux:
+
+```bash
+./build_linux.sh
+```
+
+Or directly, on any platform:
 
 ```bash
 pyinstaller RobotArmGUI.spec
 ```
 
-Build artifacts are placed under [build/RobotArmGUI/](build/RobotArmGUI/).
+The portable app is written to `dist/RobotArmGUI/`. Run it with
+`./dist/RobotArmGUI/RobotArmGUI`, or zip the whole `dist/RobotArmGUI/` folder to
+distribute it. The app forces the `xcb` Qt platform by default, so it works on
+both X11 and Wayland desktops.
+
+On a minimal target machine you may also need the system X11 client library
+`libxcb-cursor0` (`sudo apt install libxcb-cursor0`).
+
+### Single-file AppImage (Linux)
+
+To wrap the bundle into one distributable file:
+
+```bash
+./build_appimage_linux.sh
+```
+
+This produces `dist/RobotArmGUI-x86_64.AppImage` — a single executable that runs
+on any x86-64 Linux machine:
+
+```bash
+chmod +x RobotArmGUI-x86_64.AppImage
+./RobotArmGUI-x86_64.AppImage
+```
+
+It uses the `uruntime` AppImage runtime, which mounts via FUSE when available and
+automatically falls back to extract-and-run on hosts without `libfuse2` — so no
+extra system packages are required.
 
 ## Notes
 

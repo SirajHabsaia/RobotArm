@@ -193,7 +193,7 @@ class BoardDetector:
         mode = self.config.mode
         
         if mode == "video":
-            video_path = self.config.video_path
+            video_path = os.path.expanduser(os.path.expandvars(self.config.video_path))
             if not os.path.isabs(video_path):
                 video_path = os.path.join(os.path.dirname(__file__), video_path)
             self.cap = cv2.VideoCapture(video_path)
