@@ -429,21 +429,16 @@ class ChessManager:
 
         return mismatches
 
-    def get_last_move_arrows(self) -> List[Tuple[int, int, int, int]]:
+    @staticmethod
+    def move_to_arrows(move: chess.Move, is_castling: bool) -> List[Tuple[int, int, int, int]]:
         """
-        Return arrows describing the most recently applied move.
+        Convert a chess.Move into widget arrow tuples (from_row, from_col,
+        to_row, to_col) in widget coordinates (row 0 = rank 8, col 0 = file a).
 
-        Each arrow is (from_row, from_col, to_row, to_col) in widget coordinates
-        (row 0 = rank 8, col 0 = file a). A normal move yields one arrow;
-        castling yields two (the king and the rook).
-
-        Returns:
-            List of arrow tuples (empty if no move has been applied yet).
+        A normal move yields one arrow; castling yields two (the king and the
+        rook). Works for moves that have not been applied to a board yet, since
+        whether the move castles is passed in explicitly.
         """
-        move = self.last_move
-        if move is None:
-            return []
-
         def to_rc(square):
             return (7 - chess.square_rank(square), chess.square_file(square))
 
@@ -451,11 +446,8 @@ class ChessManager:
         to_rc_ = to_rc(move.to_square)
         arrows = [(from_rc[0], from_rc[1], to_rc_[0], to_rc_[1])]
 
-        # Castling: the move is already applied, so the king now sits on to_square.
-        piece = self.board.piece_at(move.to_square)
-        file_delta = chess.square_file(move.to_square) - chess.square_file(move.from_square)
-        if piece is not None and piece.piece_type == chess.KING and abs(file_delta) == 2:
-            kingside = file_delta > 0
+        if is_castling:
+            kingside = chess.square_file(move.to_square) > chess.square_file(move.from_square)
             rank = chess.square_rank(move.from_square)
             rook_from = chess.square(7 if kingside else 0, rank)
             rook_to = chess.square(5 if kingside else 3, rank)
@@ -464,6 +456,26 @@ class ChessManager:
             arrows.append((rf[0], rf[1], rt[0], rt[1]))
 
         return arrows
+
+    def get_last_move_arrows(self) -> List[Tuple[int, int, int, int]]:
+        """
+        Return arrows describing the most recently applied move.
+
+        A normal move yields one arrow; castling yields two (king and rook).
+
+        Returns:
+            List of arrow tuples (empty if no move has been applied yet).
+        """
+        move = self.last_move
+        if move is None:
+            return []
+
+        # Castling: the move is already applied, so the king now sits on to_square.
+        piece = self.board.piece_at(move.to_square)
+        file_delta = chess.square_file(move.to_square) - chess.square_file(move.from_square)
+        is_castling = piece is not None and piece.piece_type == chess.KING and abs(file_delta) == 2
+
+        return self.move_to_arrows(move, is_castling)
 
     def reset(self):
         """Reset board to starting position."""

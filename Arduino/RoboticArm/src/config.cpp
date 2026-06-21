@@ -23,7 +23,7 @@ float h = 150.0;
 // DXL CONFIGURATION
 // ===========================
 int min_position_ax12 = 0;
-int max_position_ax12 = 170;
+int max_position_ax12 = 180;
 int min_position_mx28 = 50;
 int def_position_mx28 = 1520;
 int max_position_mx28 = 2900;
@@ -42,7 +42,7 @@ int current_step[N] = {0, 0, 0};
 float current_gamma = 0.0;
 float goal_mu = 0.0;
 bool update_gripper = false;
-float gamma_diff_threshold = 1.0;
+float gamma_diff_threshold = 0.5;
 float current_gripper = 0.0;
 float goal_gripper = 0.0;
 

@@ -118,24 +118,39 @@ class BoardDetector:
     4. If no hand detected, extract 64 squares and classify with CNN
     5. Return board state and display images
     """
-    
-    def __init__(self, config: Optional[BoardAnalyzerConfig] = None, side: str = "white", performance_metrics: bool = False):
+
+    # Dev-overlay text colour per class label (BGR)
+    DEV_CLASS_COLORS = {
+        "white": (0, 255, 0),     # green
+        "black": (0, 0, 255),     # red
+        "empty": (0, 255, 255),   # yellow
+    }
+
+    def __init__(self, config: Optional[BoardAnalyzerConfig] = None, side: str = "white", performance_metrics: bool = False, dev_mode: bool = False):
         """
         Initialize the BoardDetector.
-        
+
         Args:
             config: BoardAnalyzerConfig instance, or None to use defaults
             side: Which side the user is playing from ('white' or 'black').
                   If 'white', robot arm is on black's side (top).
                   If 'black', robot arm is on white's side (bottom).
             performance_metrics: If True, track and report performance metrics
+            dev_mode: If True, overlay per-square inference confidence on the
+                      hand-contour (big cropped) stream.
         """
         if config is None:
             config = BoardAnalyzerConfig()
-        
+
         self.config = config
         self.side = side.lower()  # Normalize to lowercase
         self.performance_metrics = performance_metrics
+        self.dev_mode = dev_mode
+
+        # Dev overlay state: latest analysed confidences and the board's interior
+        # corners mapped into the full_cropped frame (for placing the overlay).
+        self._last_board_state = None
+        self._board_corners_in_full = None
         
         # Initialize performance tracking
         if self.performance_metrics:
@@ -350,7 +365,14 @@ class BoardDetector:
         
         M_full = cv2.getPerspectiveTransform(pts_full, dst_full)
         full_cropped = cv2.warpPerspective(frame, M_full, (size_full, size_full))
-        
+
+        # For the dev overlay: map the interior board corners into the
+        # full_cropped frame so per-square confidence can be placed correctly.
+        if self.dev_mode:
+            self._board_corners_in_full = cv2.perspectiveTransform(
+                self.pts_interior.reshape(-1, 1, 2), M_full
+            ).reshape(-1, 2)
+
         return small_cropped, big_cropped, full_cropped
     
     @performance_metric
@@ -615,7 +637,62 @@ class BoardDetector:
             'board_state': board_state,
             'display_image': display_image
         }
-    
+
+    def _draw_dev_confidence_overlay(self, image: np.ndarray):
+        """
+        Dev mode: overlay the latest per-square inference confidence on top of
+        the board region of the hand-contour (full_cropped) image.
+
+        Uses the board's interior corners mapped into the full_cropped frame
+        (``self._board_corners_in_full``) and bilinearly interpolates each
+        square's centre, so it stays aligned even if the warped board isn't a
+        perfect axis-aligned square. Confidences come from the most recent board
+        analysis (``self._last_board_state``); during hand/cooldown frames the
+        last analysed values are shown.
+        """
+        board_state = self._last_board_state
+        corners = self._board_corners_in_full
+        if board_state is None or corners is None:
+            return
+
+        tl, tr, br, bl = corners  # each np.array([x, y]) in full_cropped pixels
+
+        # Font scaling based on the on-screen square size
+        square_px = float(np.linalg.norm(tr - tl)) / 8.0
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = max(0.45, self.config.display_font_scale * (square_px / 65.0))
+        thickness = max(1, int(square_px / 32))
+
+        for row in range(8):
+            for col in range(8):
+                cell = board_state[row][col]
+                if cell is None:
+                    continue
+                class_label, confidence = cell
+
+                # Bilinear interpolation of the square centre within the quad
+                u = (col + 0.5) / 8.0
+                v = (row + 0.5) / 8.0
+                top = tl + u * (tr - tl)
+                bottom = bl + u * (br - bl)
+                center = top + v * (bottom - top)
+                cx, cy = int(center[0]), int(center[1])
+
+                letter = class_label[0].upper()  # 'E', 'W', or 'B'
+                conf_str = f"{confidence:.{self.config.display_confidence_decimals}f}"
+                text = f"{letter}:{conf_str}"
+
+                # Per-class colour (BGR); fall back to yellow for unknown labels
+                color = self.DEV_CLASS_COLORS.get(class_label, (0, 255, 255))
+
+                (tw, th), _ = cv2.getTextSize(text, font, font_scale, thickness)
+                tx = cx - tw // 2
+                ty = cy + th // 2
+
+                # Dark background box for readability over the live image
+                cv2.rectangle(image, (tx - 5, ty - th - 6), (tx + tw + 5, ty + 6), (0, 0, 0), -1)
+                cv2.putText(image, text, (tx, ty), font, font_scale, color, thickness, cv2.LINE_AA)
+
     def process_frame(self, frame: Optional[np.ndarray] = None) -> Optional[Dict[str, Any]]:
         """
         Process a single frame.
@@ -657,7 +734,10 @@ class BoardDetector:
             # Hand is detected: reset cooldown counter
             self.cooldown_counter = self.config.hand_detection_cooldown_frames
             self.hand_was_detected = True
-            
+
+            if self.dev_mode:
+                self._draw_dev_confidence_overlay(contour_image)
+
             return {
                 'board_state': None,
                 'display_big_cropped': contour_image,
@@ -671,7 +751,10 @@ class BoardDetector:
             if self.cooldown_counter > 0:
                 # Still in cooldown period: skip board analysis
                 self.cooldown_counter -= 1
-                
+
+                if self.dev_mode:
+                    self._draw_dev_confidence_overlay(contour_image)
+
                 return {
                     'board_state': None,
                     'display_big_cropped': contour_image,
@@ -681,10 +764,15 @@ class BoardDetector:
                     'contour_density': contour_density,
                     'cooldown_remaining': self.cooldown_counter
                 }
-        
+
         # No hand and no cooldown: analyze board
         analysis_result = self._analyze_board(small_cropped)
-        
+
+        # Cache the latest confidences and refresh the dev overlay
+        self._last_board_state = analysis_result['board_state']
+        if self.dev_mode:
+            self._draw_dev_confidence_overlay(contour_image)
+
         return {
             'board_state': analysis_result['board_state'],
             'display_big_cropped': contour_image,

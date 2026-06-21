@@ -69,6 +69,9 @@ Arduino/**/*.gitignore
 !images/*.png
 !images/*.jpg
 
+#Audio
+*.wav
+
 #Debug
 Debugger/output.txt
 GUI/Draw/waypoints.txt

@@ -14,6 +14,7 @@ from Chess.chess_engine import ChessEngine
 from Draw.draw_widgets import ImageDisplayWidget, PolylineDisplayWidget, LiveDrawingWidget, ManualDrawingWidget
 from Draw.poly_extract import ImageToPolylines
 from planner import TrajectoryPlanner
+from sound_player import play_sound
 import chess
 from pathlib import Path
 import json
@@ -44,18 +45,19 @@ class BoardDetectorThread(QThread):
     board_state_ready = Signal(object)  # Signal to emit board state (8x8 matrix)
     error_occurred = Signal(str)  # Signal to emit errors
     
-    def __init__(self, config, side):
+    def __init__(self, config, side, dev_mode=False):
         super().__init__()
         self.config = config
         self.side = side
+        self.dev_mode = dev_mode
         self.detector = None
         self._running = False
         self.pause_detection = False  # Flag to pause piece detection during robot's turn
-    
+
     def run(self):
         """Run the detector stream processing."""
         try:
-            self.detector = BoardDetector(self.config, self.side)
+            self.detector = BoardDetector(self.config, self.side, dev_mode=self.dev_mode)
             self._running = True
             
             for result in self.detector.process_stream():
@@ -88,8 +90,11 @@ class BoardDetectorThread(QThread):
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
-    def __init__(self):
+    def __init__(self, dev_mode=False):
         super().__init__()
+        self.dev_mode = dev_mode  # Enables developer overlays (e.g. per-square confidence)
+        if dev_mode:
+            print("[Dev] Developer mode enabled (--dev): per-square confidence overlay on")
         self.setupUi(self)
         self.setWindowTitle("Interface graphique")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
@@ -139,6 +144,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.chess_illegal_move = False  # True after the user makes an illegal/invalid placement
         self.chess_result_text = None  # Holds the final "Gameover - ..." text after a game ends
         self._offline_chess_engine = None  # Lazy Stockfish-free engine for test moves
+        self._sounds_dir = Path(__file__).resolve().parent / "Sounds"  # Game sound effects
+        self._illegal_sound_played_this_turn = False  # Play the illegal-move sound at most once per turn
+        self._pending_robot_arrows = []  # Arrows for the robot move currently being verified
         
         # Initialize trajectory planner (used for chess moves)
         self._setup_trajectory_planner()
@@ -1445,7 +1453,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         side = "white" if self.chess_mode_whiteBtn.isChecked() else "black"
         
         # Create and start detector thread
-        self.detector_thread = BoardDetectorThread(config, side)
+        self.detector_thread = BoardDetectorThread(config, side, dev_mode=self.dev_mode)
         self.detector_thread.frame_ready.connect(self._on_detector_frame_ready)
         self.detector_thread.board_state_ready.connect(self._on_board_state_ready)
         self.detector_thread.error_occurred.connect(self._on_detector_error)
@@ -1460,6 +1468,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if not self.currently_playing_chess:
             self.chess_result_text = None
         self._update_chess_label()
+        self._play_chess_sound("camera_initialized.wav")
 
         # Disable input controls while running
         self.chess_camidBtn.setEnabled(False)
@@ -1597,10 +1606,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         status = self.chess_manager.process_detected_state(board_state)
 
         if status == 'moved':
-            # A legal move was recognized; clear any pending illegal-move warning
-            # and the red mismatch overlay, and draw arrows for the move.
+            # A legal move was recognized; clear any pending illegal-move warning,
+            # the red mismatch overlay and the tentative verification arrow, then
+            # draw the confirmed arrow for the move.
             self.chess_illegal_move = False
             self._clear_board_mismatch()
+            self._clear_pending_move_arrows()
             self._show_move_arrows()
 
             if self.verifying_robot_move:
@@ -1609,7 +1620,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.verifying_robot_move = False
                 # Did the robot's move end the game?
                 if not self._check_chess_game_over():
+                    # New player turn: reset the per-turn illegal-sound guard
+                    self._illegal_sound_played_this_turn = False
                     self._update_chess_label()
+                    self._play_turn_sound(is_player_turn=True)
             elif self.currently_playing_chess and self.chess_engine and not self.waiting_for_arduino:
                 # User just made a valid move
                 print("[Chess] User move detected! Robot's turn.")
@@ -1633,6 +1647,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     and not self.verifying_robot_move and not self.chess_illegal_move):
                 self.chess_illegal_move = True
                 self._update_chess_label()
+                # Play the illegal-move sound at most once per turn (the label can
+                # be re-shown after a revert, but the sound should not spam).
+                if not self._illegal_sound_played_this_turn:
+                    self._play_chess_sound("illegal_move.wav")
+                    self._illegal_sound_played_this_turn = True
 
         elif status == 'nochange':
             # Board is back at the expected position; clear the overlay/warning.
@@ -3271,6 +3290,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         self.verifying_robot_move = True  # We're verifying robot move, not waiting for user
                         print("[Chess] Resumed piece detection to verify robot move")
                         self._update_chess_label()
+                        # Show a tentative arrow of the move the robot just made,
+                        # which we are now trying to verify with the camera.
+                        self._show_pending_move_arrows()
                 
                 # Check for 'D' response during drawing
                 if self.draw_executing and 'D' in data:
@@ -3536,7 +3558,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Initialize ChessEngine
         try:
-            stockfish_path = str(_bundle_base_dir() / ".stockfish" / "stockfish-ubuntu-x86-64")
+            if sys.platform == "linux":
+                stockfish_path = str(_bundle_base_dir() / ".stockfish" / "stockfish-ubuntu-x86-64")
+            else:
+                stockfish_path = str(_bundle_base_dir() / ".stockfish" / "stockfish-windows-x86-64-avx2")
             # Packaging can drop the executable bit on bundled binaries; restore it.
             try:
                 os.chmod(stockfish_path, 0o755)
@@ -3558,8 +3583,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.chess_manager.reset()
         self._clear_board_mismatch()
         self._clear_move_arrows()
+        self._clear_pending_move_arrows()
         self.chess_result_text = None
         self.chess_illegal_move = False
+        self._illegal_sound_played_this_turn = False
 
         # Update game state
         self.currently_playing_chess = True
@@ -3573,10 +3600,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Pause detection during robot's move
             if self.detector_thread:
                 self.detector_thread.pause_detection = True
-            self._execute_robot_move()
+            self._execute_robot_move()  # plays the robot_turn cue
         else:
             # User plays first
             self._update_chess_label()
+            self._play_turn_sound(is_player_turn=True)
     
     def _forfeit_chess_game(self):
         """Forfeit current game and reset."""
@@ -3606,9 +3634,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.chess_illegal_move = False
         self._clear_board_mismatch()
         self._clear_move_arrows()
+        self._clear_pending_move_arrows()
         self._update_chess_label()
 
         print("[Chess] Game reset complete")
+
+    def _play_chess_sound(self, filename):
+        """Play a sound effect from GUI/Sounds via an OS command (non-blocking)."""
+        play_sound(str(self._sounds_dir / filename))
+
+    def _play_turn_sound(self, is_player_turn):
+        """Play the turn cue, choosing the in-check variant when the side to move
+        is in check."""
+        board = self.chess_manager.board if self.chess_manager else None
+        in_check = board.is_check() if board is not None else False
+        if is_player_turn:
+            self._play_chess_sound("your_turn_check.wav" if in_check else "your_turn.wav")
+        else:
+            self._play_chess_sound("robot_turn_check.wav" if in_check else "robot_turn.wav")
 
     def _show_board_mismatch(self):
         """Highlight squares where the detected board differs from the last good position."""
@@ -3636,6 +3679,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Remove the move arrows from the virtual board."""
         if getattr(self, 'chess_board', None):
             self.chess_board.clear_move_arrows()
+
+    def _show_pending_move_arrows(self):
+        """Draw the tentative arrow(s) for the robot move currently being verified."""
+        if self._pending_robot_arrows and getattr(self, 'chess_board', None):
+            self.chess_board.set_pending_move_arrows(self._pending_robot_arrows)
+
+    def _clear_pending_move_arrows(self):
+        """Remove the tentative (being-verified) move arrows from the board."""
+        self._pending_robot_arrows = []
+        if getattr(self, 'chess_board', None):
+            self.chess_board.clear_pending_move_arrows()
 
     def _update_chess_label(self):
         """Update chessLabel to reflect the current connection/game state."""
@@ -3725,6 +3779,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.detector_thread.pause_detection = False
 
         self._update_chess_label()
+
+        # Game-over sound
+        if robot_won is True:
+            self._play_chess_sound("gameover_robot_wins.wav")
+        elif robot_won is False:
+            self._play_chess_sound("gameover_you_win.wav")
+        else:
+            self._play_chess_sound("gameover_draw.wav")
 
         # Send the robot a celebration (win) or consolation (loss) gesture.
         if robot_won is True:
@@ -3934,7 +3996,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 return
             
             print(f"[Chess] Robot move: {best_move.uci()}")
-            
+
+            # Remember the arrow(s) for this move so we can show a tentative
+            # arrow while verifying it once the robot reports completion ('D').
+            # chess_engine.board is the pre-move position here, so is_castling works.
+            self._pending_robot_arrows = ChessManager.move_to_arrows(
+                best_move, self.chess_engine.board.is_castling(best_move)
+            )
+
             # Generate trajectory for the move
             trajectory_data = self.chess_engine.generate_move_trajectory(best_move)
             
@@ -3972,6 +4041,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.waiting_for_arduino = True
                 print("[Chess] Waiting for Arduino to complete move (waiting for 'D')...")
                 self._update_chess_label()
+                self._play_turn_sound(is_player_turn=False)
             else:
                 print("[Chess] ERROR: Serial connection not available")
                 # Resume detection if send failed

@@ -63,6 +63,10 @@ class ChessWidget(QWidget):
         # Arrows marking the last played move(s): list of (from_row, from_col,
         # to_row, to_col). Castling produces two arrows (king and rook).
         self.move_arrows = []
+
+        # Arrows for a move the robot has performed but that is still being
+        # verified by the camera. Drawn more transparently to read as tentative.
+        self.pending_move_arrows = []
         
         # Load piece images
         self.piece_images = {}  # Original high-res images
@@ -201,9 +205,14 @@ class ChessWidget(QWidget):
                 if piece:
                     self._draw_piece(painter, piece, row, col, square_size)
 
-        # Draw move arrows (on top of pieces)
+        # Draw the pending (being-verified) move arrows first, then the solid
+        # confirmed move arrows on top.
+        if self.pending_move_arrows:
+            self._draw_arrows(painter, square_size, self.pending_move_arrows,
+                              QColor(255, 140, 0, 110))  # transparent orange
         if self.move_arrows:
-            self._draw_move_arrows(painter, square_size)
+            self._draw_arrows(painter, square_size, self.move_arrows,
+                              QColor(30, 120, 220, 200))  # semi-transparent blue
 
         # Draw translucent red overlay on highlighted squares (on top of pieces)
         if self.highlighted_squares:
@@ -288,10 +297,25 @@ class ChessWidget(QWidget):
             self.move_arrows = []
             self.update()
 
-    def _draw_move_arrows(self, painter, square_size):
-        """Draw all current move arrows from square center to square center."""
+    def set_pending_move_arrows(self, arrows):
+        """Show tentative arrows for a robot move that is being verified.
+
+        Args:
+            arrows: iterable of (from_row, from_col, to_row, to_col) tuples.
+                    Castling passes two arrows.
+        """
+        self.pending_move_arrows = list(arrows)
+        self.update()
+
+    def clear_pending_move_arrows(self):
+        """Remove the pending (being-verified) move arrows from the board."""
+        if self.pending_move_arrows:
+            self.pending_move_arrows = []
+            self.update()
+
+    def _draw_arrows(self, painter, square_size, arrows, color):
+        """Draw arrows (square centre to square centre) in the given colour."""
         painter.save()
-        color = QColor(30, 120, 220, 200)  # semi-transparent blue
         pen = QPen(color, max(3, square_size // 10))
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
@@ -300,7 +324,7 @@ class ChessWidget(QWidget):
 
         half = square_size / 2.0
         head = square_size * 0.34  # arrowhead length
-        for (from_row, from_col, to_row, to_col) in self.move_arrows:
+        for (from_row, from_col, to_row, to_col) in arrows:
             fx, fy = self._square_to_coords(from_row, from_col)
             tx, ty = self._square_to_coords(to_row, to_col)
             x1, y1 = fx + half, fy + half
