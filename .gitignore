@@ -54,6 +54,9 @@ Arduino/**/*.gitignore
 # ai model
 *.pth
 
+#ai labels
+AI/**/*.txt
+
 # Temporary files
 *.tmp
 *.bak
