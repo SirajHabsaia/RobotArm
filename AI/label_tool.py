@@ -378,6 +378,11 @@ class LabelTool(QMainWindow):
         self.coord.setText(f"Saved {saved}: {x_pct:.1f} {y_pct:.1f}")
 
     def _undo_last(self):
+        """Step back to the last labeled image and show its current label.
+
+        The existing label is kept and drawn as a dot so it can be reviewed;
+        clicking a new point overwrites it and resumes at the next image.
+        """
         if not self._is_label_mode():
             return
         images, labels = self._paths(self.current_category)
@@ -390,11 +395,33 @@ class LabelTool(QMainWindow):
         img = idx_map.get(last)
         if img is None:
             return
+
+        pix = QPixmap(str(img))
+        if pix.isNull():
+            self.canvas.show_placeholder(f"Could not load {img.name}")
+            return
+        self.canvas.set_image(pix)
+        self.current_image = img
+        self.canvas.clickable = True
+
+        # show the existing label so the user can see what they are editing
         target = self._label_path(labels, img)
-        if target.exists():
-            target.unlink()
-        self._load_next_to_label()
-        self.coord.setText(f"Removed label for {img.name} — re-label it")
+        coord_txt = ""
+        try:
+            parts = target.read_text(encoding="utf-8").split()
+            x_pct, y_pct = float(parts[0]), float(parts[1])
+        except (OSError, ValueError, IndexError):
+            self.canvas.set_marker(None, None)
+        else:
+            self.canvas.set_marker(x_pct / 100.0, 1.0 - y_pct / 100.0)
+            coord_txt = f" (current: {x_pct:.1f} {y_pct:.1f})"
+
+        total = len(idx_map)
+        self.status.setText(
+            f"{self.current_category} — editing {img.name} "
+            f"(index {last}, {len(labeled)}/{total} done)"
+        )
+        self.coord.setText(f"Click to overwrite the label{coord_txt}")
 
     # -- check mode --
     def _show_checked_index(self):

@@ -80,6 +80,44 @@ class ChessCNN(nn.Module):
         return self.classifier(self.features(x))
 
 
+class PositionCNN(nn.Module):
+    """Regression CNN that locates the piece centre within a 32x32 square crop.
+
+    Output: 2 sigmoid values in [0, 1] -> (x, y) as fractions of the square,
+    bottom-left origin (x left->right, y bottom->top). Must match PositionCNN in
+    AI/train/train_position.py and AI/Inference/inference_position.py.
+    """
+    def __init__(self):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 8, 3, padding=1),
+            nn.BatchNorm2d(8),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                  # 32 -> 16
+
+            nn.Conv2d(8, 16, 3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                  # 16 -> 8
+
+            nn.Conv2d(16, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                  # 8 -> 4
+        )
+        self.head = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(32 * 4 * 4, 64),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(64, 2),
+            nn.Sigmoid(),                     # outputs in [0, 1]
+        )
+
+    def forward(self, x):
+        return self.head(self.features(x))
+
+
 # ======================== BOARD DETECTOR ========================
 
 def performance_metric(func):
@@ -147,10 +185,17 @@ class BoardDetector:
         self.performance_metrics = performance_metrics
         self.dev_mode = dev_mode
 
-        # Dev overlay state: latest analysed confidences and the board's interior
-        # corners mapped into the full_cropped frame (for placing the overlay).
+        # Dev overlay state: latest analysed confidences/positions and the board's
+        # interior corners mapped into the full_cropped frame (for placing overlays).
         self._last_board_state = None
+        self._last_position_state = None
+        self._last_board_tensor = None  # cached (3,256,256) board for on-demand localization
         self._board_corners_in_full = None
+
+        # When True (mirrored from the thread's pause_detection), classification is
+        # frozen (the robot is executing its move). The last analysed board/positions
+        # are kept so the dev overlay can keep showing the piece-centre dots.
+        self.classification_paused = False
         
         # Initialize performance tracking
         if self.performance_metrics:
@@ -195,13 +240,33 @@ class BoardDetector:
             print(f"Warning: Model file '{model_path}' not found. Using untrained model.")
         
         self.model.eval()
-        
+
         # Image preprocessing (32x32 for new lightweight model)
         self.transform = transforms.Compose([
             transforms.Resize((32, 32)),
             transforms.ToTensor()
         ])
-    
+
+        # Position regression model (locates the piece centre within a square).
+        # Optional: if the weights are missing, piece localization is disabled and
+        # the robot falls back to aiming at the geometric square centre.
+        position_model_path = getattr(self.config, "position_model_path", "model_position.pth")
+        if not os.path.isabs(position_model_path):
+            position_model_path = os.path.join(os.path.dirname(__file__), position_model_path)
+
+        self.position_model = None
+        if os.path.exists(position_model_path):
+            try:
+                self.position_model = PositionCNN()
+                self.position_model.load_state_dict(torch.load(position_model_path, map_location=self.config.device))
+                self.position_model.eval()
+                print(f"[BoardDetector] Position model loaded: {position_model_path}")
+            except Exception as e:
+                self.position_model = None
+                print(f"[BoardDetector] Warning: failed to load position model ({e}); using square centres.")
+        else:
+            print(f"[BoardDetector] Position model '{position_model_path}' not found; using square centres.")
+
     @performance_metric
     def _init_capture(self):
         """Initialize video capture based on mode."""
@@ -559,10 +624,15 @@ class BoardDetector:
             Dictionary containing:
             - board_state: 8x8 list of (class, confidence) tuples
             - display_image: small_cropped with predictions overlaid
+
+        Note: piece-centre localization is NOT run here. It is computed on
+        demand for only the squares a move needs, right before the trajectory
+        (see ``predict_square_positions``). The board tensor is cached so that
+        on-demand inference can reuse it without re-warping.
         """
         # Initialize board state (8x8 grid)
         board_state = [[None for _ in range(8)] for _ in range(8)]
-        
+
         # Create display image
         display_image = small_cropped.copy()
         
@@ -593,23 +663,28 @@ class BoardDetector:
         
         # Step 5: Stack into batch (64, 3, 32, 32)
         batch_input = torch.stack(batch_tensors)
-        
-        # Step 6: Run batch inference ONCE
+
+        # Cache the board tensor so piece-centre localization can be run on demand
+        # later (for just the squares a move touches) without re-warping the board.
+        self._last_board_tensor = board_tensor
+
+        # Step 6: Run batch inference ONCE (classification only)
         with torch.no_grad():
             batch_output = self.model(batch_input)
             batch_probabilities = torch.softmax(batch_output, dim=1)
             confidences, predicted_indices = torch.max(batch_probabilities, 1)
-        
+
         # Step 7: Extract results and draw visualizations
         idx = 0
         for row in range(8):
             for col in range(8):
                 confidence = confidences[idx].item()
                 class_label = self.config.class_names[predicted_indices[idx].item()]
-                idx += 1
-                
+
                 board_state[row][col] = (class_label, confidence)
-                
+
+                idx += 1
+
                 # Draw prediction on display image (original resolution)
                 center_x = int(col * square_size_display + square_size_display / 2)
                 center_y = int(row * square_size_display + square_size_display / 2)
@@ -630,13 +705,79 @@ class BoardDetector:
                 text_x = center_x - text_width // 2
                 text_y = center_y + text_height // 2
                 
-                cv2.putText(display_image, text, (text_x, text_y), font, 
+                cv2.putText(display_image, text, (text_x, text_y), font,
                            font_scale, color, thickness, cv2.LINE_AA)
-        
+
+        # In dev mode only, localize every occupied piece so the overlay can show
+        # the predicted centres. Normal operation skips this and localizes on
+        # demand (just the squares a move needs) right before the trajectory.
+        if self.dev_mode:
+            occupied = [(r, c) for r in range(8) for c in range(8)
+                        if board_state[r][c][0] != "empty"]
+            preds = self._run_position_model(occupied, board_tensor)
+            pos_grid = [[None for _ in range(8)] for _ in range(8)]
+            for (r, c), xy in preds.items():
+                pos_grid[r][c] = xy
+            self._last_position_state = pos_grid
+
         return {
             'board_state': board_state,
             'display_image': display_image
         }
+
+    def _run_position_model(self, square_indices, board_tensor=None):
+        """Run the position model on the given ``(row, col)`` squares.
+
+        Args:
+            square_indices: iterable of (row, col) with row 0 = rank 8, col 0 = file a.
+            board_tensor: (3, 256, 256) board tensor to crop from; defaults to the
+                last analysed board (``self._last_board_tensor``).
+
+        Returns:
+            ``{(row, col): (x_pct, y_pct)}`` (bottom-left origin, percent).
+            Empty dict if the model or board tensor is unavailable.
+        """
+        if self.position_model is None:
+            return {}
+        if board_tensor is None:
+            board_tensor = self._last_board_tensor
+        if board_tensor is None:
+            return {}
+
+        crops, valid = [], []
+        for (row, col) in square_indices:
+            if 0 <= row < 8 and 0 <= col < 8:
+                y1, x1 = row * 32, col * 32
+                crops.append(board_tensor[:, y1:y1 + 32, x1:x1 + 32])
+                valid.append((row, col))
+        if not crops:
+            return {}
+
+        with torch.no_grad():
+            out = (self.position_model(torch.stack(crops)) * 100.0).cpu()
+        return {rc: (out[i, 0].item(), out[i, 1].item()) for i, rc in enumerate(valid)}
+
+    def predict_square_positions(self, square_names):
+        """Predict piece centres for the given square names (e.g. ``['e2', 'h1']``).
+
+        Localizes only the requested squares using the most recently analysed
+        board image. Intended to be called right before generating a trajectory.
+
+        Returns:
+            ``{square_name: (x_pct, y_pct)}`` for squares where a prediction is
+            available (bottom-left origin, percent). Empty if no position model
+            or no analysed board yet.
+        """
+        if not square_names:
+            return {}
+        indices, index_to_name = [], {}
+        for name in square_names:
+            col = ord(name[0]) - ord('a')      # file a..h -> 0..7
+            row = 7 - (int(name[1]) - 1)        # rank 1..8 -> row 7..0
+            indices.append((row, col))
+            index_to_name[(row, col)] = name
+        preds = self._run_position_model(indices)
+        return {index_to_name[rc]: xy for rc, xy in preds.items()}
 
     def _draw_dev_confidence_overlay(self, image: np.ndarray):
         """
@@ -651,17 +792,29 @@ class BoardDetector:
         last analysed values are shown.
         """
         board_state = self._last_board_state
+        position_state = self._last_position_state
         corners = self._board_corners_in_full
         if board_state is None or corners is None:
             return
 
         tl, tr, br, bl = corners  # each np.array([x, y]) in full_cropped pixels
 
+        def board_point(u, v):
+            """Bilinearly interpolate a board point; u=left->right, v=top->bottom (0..1)."""
+            top = tl + u * (tr - tl)
+            bottom = bl + u * (br - bl)
+            return top + v * (bottom - top)
+
         # Font scaling based on the on-screen square size
         square_px = float(np.linalg.norm(tr - tl)) / 8.0
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = max(0.45, self.config.display_font_scale * (square_px / 65.0))
         thickness = max(1, int(square_px / 32))
+        dot_radius = max(2, int(square_px / 10))
+
+        # While classification is paused (robot executing its move), hide the
+        # confidence labels so the frozen piece-centre dots stay clearly visible.
+        show_labels = not self.classification_paused
 
         for row in range(8):
             for col in range(8):
@@ -670,20 +823,30 @@ class BoardDetector:
                     continue
                 class_label, confidence = cell
 
-                # Bilinear interpolation of the square centre within the quad
-                u = (col + 0.5) / 8.0
-                v = (row + 0.5) / 8.0
-                top = tl + u * (tr - tl)
-                bottom = bl + u * (br - bl)
-                center = top + v * (bottom - top)
+                center = board_point((col + 0.5) / 8.0, (row + 0.5) / 8.0)
                 cx, cy = int(center[0]), int(center[1])
+
+                # Per-class colour (BGR); fall back to yellow for unknown labels
+                color = self.DEV_CLASS_COLORS.get(class_label, (0, 255, 255))
+
+                # Marker at the predicted piece centre (where the arm will aim).
+                if position_state is not None and position_state[row][col] is not None:
+                    x_pct, y_pct = position_state[row][col]
+                    # x_pct: left->right within the square; y_pct: bottom->top, so
+                    # the vertical fraction from the top of the square is 1 - y_pct.
+                    pu = (col + x_pct / 100.0) / 8.0
+                    pv = (row + (1.0 - y_pct / 100.0)) / 8.0
+                    ppt = board_point(pu, pv)
+                    px, py = int(ppt[0]), int(ppt[1])
+                    cv2.circle(image, (px, py), dot_radius, color, -1)
+                    cv2.circle(image, (px, py), dot_radius, (255, 255, 255), 1, cv2.LINE_AA)
+
+                if not show_labels:
+                    continue
 
                 letter = class_label[0].upper()  # 'E', 'W', or 'B'
                 conf_str = f"{confidence:.{self.config.display_confidence_decimals}f}"
                 text = f"{letter}:{conf_str}"
-
-                # Per-class colour (BGR); fall back to yellow for unknown labels
-                color = self.DEV_CLASS_COLORS.get(class_label, (0, 255, 255))
 
                 (tw, th), _ = cv2.getTextSize(text, font, font_scale, thickness)
                 tx = cx - tw // 2
@@ -728,7 +891,23 @@ class BoardDetector:
         
         # Detect hand in stripe
         hand_detected, contour_image, contour_density = self._detect_hand_in_stripe(big_cropped, full_cropped)
-        
+
+        # Classification paused (robot is executing its move): keep the video
+        # stream live but don't re-classify, so the last good board / piece
+        # positions stay frozen. In dev mode the overlay then shows just the
+        # piece-centre dots (labels are hidden while paused).
+        if self.classification_paused:
+            if self.dev_mode:
+                self._draw_dev_confidence_overlay(contour_image)
+            return {
+                'board_state': None,
+                'display_big_cropped': contour_image,
+                'display_small_cropped': None,
+                'hand_detected': hand_detected,
+                'skipped': True,
+                'contour_density': contour_density
+            }
+
         # Handle cooldown logic
         if hand_detected:
             # Hand is detected: reset cooldown counter
@@ -768,7 +947,8 @@ class BoardDetector:
         # No hand and no cooldown: analyze board
         analysis_result = self._analyze_board(small_cropped)
 
-        # Cache the latest confidences and refresh the dev overlay
+        # Cache the latest board state and refresh the dev overlay. In dev mode,
+        # _analyze_board has already populated self._last_position_state.
         self._last_board_state = analysis_result['board_state']
         if self.dev_mode:
             self._draw_dev_confidence_overlay(contour_image)

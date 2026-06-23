@@ -63,12 +63,16 @@ class BoardDetectorThread(QThread):
             for result in self.detector.process_stream():
                 if not self._running:
                     break
-                
+
+                # Mirror the pause state into the detector so it freezes
+                # classification while the robot executes its move (next frame).
+                self.detector.classification_paused = self.pause_detection
+
                 if result is not None:
                     # Emit the full region (hand detection) frame
                     display_frame = result['display_big_cropped']
                     self.frame_ready.emit(display_frame)
-                    
+
                     # Emit board state if available (not skipped and not paused)
                     if not result['skipped'] and result['board_state'] is not None and not self.pause_detection:
                         self.board_state_ready.emit(result['board_state'])
@@ -1598,7 +1602,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _on_board_state_ready(self, board_state):
         """Handle new board state from detector."""
         # board_state is 8x8 matrix of (class_label, confidence) tuples
-        
+
         # Pass to chess manager for validation
         if not self.chess_manager:
             return
@@ -3300,13 +3304,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self._on_draw_polyline_complete()
                 
                 self.serial_buffer += data
-                
-                # Process complete lines
+
+                # Extract all complete lines this tick. The robot streams joint
+                # feedback far faster than the GUI needs (or can render); every
+                # intermediate line is immediately stale. Only the most recent
+                # complete line carries useful state, so coalesce to it instead
+                # of running the (heavy) per-line UI/3D update on every one. This
+                # is what keeps the event loop responsive during a move.
+                last_line = None
                 while '\n' in self.serial_buffer:
                     line, self.serial_buffer = self.serial_buffer.split('\n', 1)
                     line = line.strip()
                     if line:
-                        self._parse_feedback(line)
+                        last_line = line
+                if last_line is not None:
+                    self._parse_feedback(last_line)
         except (serial.SerialException, UnicodeDecodeError) as e:
             # Check if this is a disconnection error (ClearCommError/PermissionError)
             if isinstance(e, serial.SerialException):
@@ -3459,18 +3471,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.yLabel.setText(f"{self.current_y:.1f}")
                 self.zLabel.setText(f"{self.current_z:.1f}")
                 
-                # Update 3D viewer with actual positions from Arduino
+                # Update 3D viewer with actual positions from Arduino (single
+                # pose update -> one transform rebuild + one throttled render).
                 if self.robot_viewer:
-                    self.robot_viewer.set_theta(theta_360)
-                    self.robot_viewer.set_alpha(alpha)
-                    self.robot_viewer.set_beta(beta)
-                    self.robot_viewer.set_mu(self.current_mu)
-                    
-                    # Update gripper in 3D viewer if received
-                    if gripper is not None:
-                        # Map gripper angle from 0-180 to 0-85 for 3D viewer
-                        gripper_mapped = (gripper / 180.0) * 85.0
-                        self.robot_viewer.set_gripper(gripper_mapped)
+                    # Map gripper angle from 0-180 to 0-85 for 3D viewer
+                    gripper_mapped = (gripper / 180.0) * 85.0 if gripper is not None else None
+                    self.robot_viewer.set_pose(theta=theta_360, alpha=alpha,
+                                               beta=beta, mu=self.current_mu,
+                                               gripper=gripper_mapped)
                 
                 # Buffer point for live drawing if plotting is active and z is low (pen down)
                 if self.draw_plotting_active and self.current_z < self.draw_z_threshold:
@@ -3492,13 +3500,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Get the waypoint data
             x, y, z, mu, gripper = self.waypoints[waypoint_index]
             
-            # Update 3D viewer with mu and gripper values
+            # Update 3D viewer with mu and gripper values (single pose update)
             if self.robot_viewer:
-                self.robot_viewer.set_mu(mu)
-                
                 # Map gripper percentage from 0-100 to 0-85 for 3D viewer
                 gripper_mapped = (gripper / 100.0) * 85.0
-                self.robot_viewer.set_gripper(gripper_mapped)
+                self.robot_viewer.set_pose(mu=mu, gripper=gripper_mapped)
             
             # Update current mu and gripper values
             self.current_mu = mu
@@ -3690,6 +3696,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._pending_robot_arrows = []
         if getattr(self, 'chess_board', None):
             self.chess_board.clear_pending_move_arrows()
+
+    def _get_piece_positions_for_move(self, move):
+        """Localize only the squares this move picks from, on demand.
+
+        Asks the detector to run the position model on just the pick squares
+        (mover, captured/en-passant piece, castling rook) using the most recent
+        board image, returning {square_name: (x_pct, y_pct)}. Returns None if the
+        detector or position model is unavailable (-> fall back to square centres).
+        """
+        if not self.chess_engine:
+            return None
+        detector = self.detector_thread.detector if self.detector_thread else None
+        if detector is None:
+            return None
+        pick_squares = self.chess_engine.get_pick_squares(move)
+        positions = detector.predict_square_positions(pick_squares)
+        return positions or None
 
     def _update_chess_label(self):
         """Update chessLabel to reflect the current connection/game state."""
@@ -4004,8 +4027,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 best_move, self.chess_engine.board.is_castling(best_move)
             )
 
-            # Generate trajectory for the move
-            trajectory_data = self.chess_engine.generate_move_trajectory(best_move)
+            # Localize just this move's pick squares (on demand) and aim picks at
+            # the true piece centres (falls back to square centres if unavailable).
+            piece_positions = self._get_piece_positions_for_move(best_move)
+            trajectory_data = self.chess_engine.generate_move_trajectory(
+                best_move, piece_positions=piece_positions
+            )
             
             print(f"[Chess] Move: {trajectory_data['description']}")
             print(f"[Chess] Duration: {trajectory_data['T_duration']}s")

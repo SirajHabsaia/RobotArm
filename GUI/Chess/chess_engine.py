@@ -166,34 +166,56 @@ class ChessEngine:
         
         return result.move
     
-    def square_to_coords(self, square_name: str, piece_type: Optional[int] = None) -> Tuple[float, float, float]:
+    def square_to_coords(self, square_name: str, piece_type: Optional[int] = None,
+                         position_pct: Optional[Tuple[float, float]] = None) -> Tuple[float, float, float]:
         """
         Convert chess square notation to robot coordinates.
-        
+
         Args:
             square_name: Chess square like 'e4', 'a1', etc.
             piece_type: Chess piece type (chess.PAWN, etc.) for pickup height.
                        If None, uses PAWN height as default.
-        
+            position_pct: Optional ``(x_pct, y_pct)`` from the position model,
+                       giving where the piece actually sits inside its square
+                       (bottom-left origin: x left->right, y bottom->top, 50/50 =
+                       centre). When given, the returned (x, y) is refined to the
+                       piece centre instead of the geometric square centre.
+
         Returns:
             (x, y, z) coordinates where z is pickup height for the piece
         """
         file = square_name[0]
         rank = square_name[1]
-        
+
+        # Geometric centre of the square
         x = self.rank_to_x[rank]
         y = self.file_to_y[file]
-        
+
+        # Refine to the true piece position within the square, if provided.
+        if position_pct is not None:
+            x_pct, y_pct = position_pct
+            # Per-square step vectors derived from the same board-edge anchors
+            # used for the centres, so this stays consistent with the calibration:
+            #   - files a->h run along +y  (FILE_A_Y -> FILE_H_Y)
+            #   - ranks 1->8 run along x   (RANK_1_X -> RANK_8_X)
+            d_file_y = (self.file_to_y['h'] - self.file_to_y['a']) / 7.0
+            d_rank_x = (self.rank_to_x['8'] - self.rank_to_x['1']) / 7.0
+            # x_pct (crop left->right) maps to the file axis (robot y);
+            # y_pct (crop bottom->top, i.e. toward rank 8) maps to the rank axis (robot x).
+            y = y + (x_pct / 100.0 - 0.5) * d_file_y
+            x = x + (y_pct / 100.0 - 0.5) * d_rank_x
+
         # Get piece-specific pickup height
         if piece_type is None:
             piece_type = chess.PAWN  # Default
         z = self.PICKUP_HEIGHTS.get(piece_type, self.PICKUP_HEIGHTS[chess.PAWN])
-        
+
         return (x, y, z)
     
     def generate_move_trajectory(self,
                                 move: chess.Move,
-                                home_position: Optional[Tuple[float, float, float]] = None) -> Dict:
+                                home_position: Optional[Tuple[float, float, float]] = None,
+                                piece_positions: Optional[Dict[str, Tuple[float, float]]] = None) -> Dict:
         """
         Generate trajectory function and parameters for a chess move.
 
@@ -212,6 +234,10 @@ class ChessEngine:
         Args:
             move: Chess move to execute
             home_position: Starting position, defaults to HOME_POSITION
+            piece_positions: Optional dict mapping square name (e.g. 'e2') to the
+                       position-model output ``(x_pct, y_pct)`` for the piece on
+                       that square. Used to aim picks at the true piece centre
+                       instead of the geometric square centre.
 
         Returns:
             Dictionary with:
@@ -224,7 +250,7 @@ class ChessEngine:
         if home_position is None:
             home_position = self.HOME_POSITION
 
-        operations, description = self._decompose_move(move)
+        operations, description = self._decompose_move(move, piece_positions)
 
         trajectory_func, T_duration, gripper_actions = self._build_trajectory(operations, home_position)
 
@@ -287,7 +313,41 @@ class ChessEngine:
             'move': None,
         }
 
-    def _decompose_move(self, move: chess.Move) -> Tuple[List[Dict], str]:
+    def get_pick_squares(self, move: chess.Move) -> List[str]:
+        """
+        Return the squares the robot will pick a real piece from for this move.
+
+        Mirrors the pick operations of ``_decompose_move``:
+            - normal move      -> [from]
+            - capture           -> [captured_square, from]
+            - en passant        -> [captured_pawn_square, from]
+            - castling          -> [king_from, rook_from]
+
+        Used to localize only the relevant squares with the position model.
+        """
+        from_square = chess.square_name(move.from_square)
+
+        if self.board.is_castling(move):
+            kingside = chess.square_file(move.to_square) > chess.square_file(move.from_square)
+            rank = chess.square_rank(move.from_square)
+            rook_from = chess.square_name(chess.square(7 if kingside else 0, rank))
+            return [from_square, rook_from]
+
+        squares = []
+        if self.board.is_capture(move):
+            if self.board.is_en_passant(move):
+                captured_idx = chess.square(
+                    chess.square_file(move.to_square),
+                    chess.square_rank(move.from_square),
+                )
+            else:
+                captured_idx = move.to_square
+            squares.append(chess.square_name(captured_idx))
+        squares.append(from_square)
+        return squares
+
+    def _decompose_move(self, move: chess.Move,
+                        piece_positions: Optional[Dict[str, Tuple[float, float]]] = None) -> Tuple[List[Dict], str]:
         """
         Decompose a chess move into an ordered list of pick-and-place operations.
 
@@ -306,10 +366,19 @@ class ChessEngine:
             - en passant        (captured pawn sits behind the destination square)
             - castling          (king and rook are two independent move operations)
 
+        ``piece_positions`` (square name -> (x_pct, y_pct)) refines every *pick*
+        to the true piece centre reported by the position model. Places always
+        target the geometric square centre (we set the piece down centred).
+
         Returns:
             (operations, description)
         """
         operations: List[Dict] = []
+        positions = piece_positions or {}
+
+        def pick_coords(square_name, piece_type):
+            """Pick location, refined by the position model if available for that square."""
+            return self.square_to_coords(square_name, piece_type, positions.get(square_name))
 
         from_square = chess.square_name(move.from_square)
         to_square = chess.square_name(move.to_square)
@@ -327,12 +396,12 @@ class ChessEngine:
             rook_to = chess.square_name(chess.square(5 if kingside else 3, rank))
 
             operations.append({
-                'pick': self.square_to_coords(from_square, chess.KING),
+                'pick': pick_coords(from_square, chess.KING),
                 'place': self.square_to_coords(to_square, chess.KING),
                 'grip': moving_grip,
             })
             operations.append({
-                'pick': self.square_to_coords(rook_from, chess.ROOK),
+                'pick': pick_coords(rook_from, chess.ROOK),
                 'place': self.square_to_coords(rook_to, chess.ROOK),
                 'grip': self.GRIPPER_CLOSED_ANGLES[chess.ROOK],
             })
@@ -359,14 +428,14 @@ class ChessEngine:
             captured_grip = self.GRIPPER_CLOSED_ANGLES.get(captured_piece_type, self.GRIPPER_CLOSED_ANGLES[chess.PAWN])
 
             operations.append({
-                'pick': self.square_to_coords(captured_square, captured_piece_type),
+                'pick': pick_coords(captured_square, captured_piece_type),
                 'place': tuple(self.DISCARD_POSITION),
                 'grip': captured_grip,
             })
 
         # --- Main move of our own piece ---
         operations.append({
-            'pick': self.square_to_coords(from_square, moving_piece_type),
+            'pick': pick_coords(from_square, moving_piece_type),
             'place': self.square_to_coords(to_square, moving_piece_type),
             'grip': moving_grip,
         })

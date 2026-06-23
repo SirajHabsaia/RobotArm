@@ -265,50 +265,60 @@ class TrajectoryPlanner:
         t_dense = self.t_dense
         q_dense = self.q_dense
         
-        # Map gripper actions to dense trajectory using path parameter
-        self.gripper_dense = np.full(len(t_dense), -1.0)
-        gripper_optimized_times = {}
-        gripper_dense = self.gripper_dense
-        
-        if gripper_s_map:
-            # For each gripper action, evaluate the path at its s parameter
-            # then find that exact configuration in the dense trajectory
-            for s_action, gripper_angle in gripper_s_map.items():
-                # Evaluate the path (spline) at this s parameter to get joint configuration
-                target_joints = path.eval(s_action)  # Returns [theta, alpha, beta, mu]
-                target_position = target_joints[:3]  # Use only theta, alpha, beta
-                
-                # Find this configuration in the optimized dense trajectory
-                distances = np.linalg.norm(q_dense[:, :3] - target_position, axis=1)
-                closest_idx = np.argmin(distances)
-                min_distance = distances[closest_idx]
-                
-                # Assign gripper action
-                gripper_dense[closest_idx] = gripper_angle
-                gripper_optimized_times[t_dense[closest_idx]] = gripper_angle
-                
-                if self.verbose_logging:
-                    print(f"Gripper {gripper_angle}° assigned at t={t_dense[closest_idx]:.3f}s (idx={closest_idx}, dist={min_distance:.4f})")
-        
-        # Generate output waypoints
+        # --- Deterministic gripper-action timing ------------------------------
+        # TOPPRA computes the path time-parameterization s(t). The parametrizer
+        # exposes it directly: ``_ss`` are the path parameters (in [0, 1]) and
+        # ``_ts`` the matching optimized times, both monotonic. Each gripper
+        # action is already mapped to a path parameter s_action, so its optimized
+        # time is just the (unique) inverse s -> t via interpolation. This is
+        # stable and exact, unlike searching for the nearest joint configuration
+        # (which is ambiguous whenever the path revisits a similar pose, e.g. an
+        # out-and-back arc or an oscillation).
+        s_grid = np.asarray(getattr(jnt_traj, "_ss", []), dtype=float)
+        t_grid = np.asarray(getattr(jnt_traj, "_ts", []), dtype=float)
+        have_param = s_grid.size >= 2 and s_grid.size == t_grid.size
+
+        # Output waypoint grid (uniform in optimized time)
         if self.total_time / self.min_waypoint_dt > self.max_waypoint_count:
             self.output_waypoint_count = self.max_waypoint_count
             self.output_waypoint_dt = self.total_time / self.max_waypoint_count
         else:
             self.output_waypoint_dt = self.min_waypoint_dt
             self.output_waypoint_count = int(np.ceil(self.total_time / self.min_waypoint_dt)) + 1
-        
+
         waypoint_times = np.linspace(0, self.total_time, self.output_waypoint_count)
-        
-        # Map gripper actions to output waypoints
+
+        # Map each gripper action: path parameter s -> optimized time -> waypoint.
+        self.gripper_dense = np.full(len(t_dense), -1.0)
+        gripper_dense = self.gripper_dense
         output_gripper_map = {}
-        if gripper_optimized_times:
-            for t_opt, gripper_angle in gripper_optimized_times.items():
-                closest_idx = np.argmin(np.abs(waypoint_times - t_opt))
-                output_gripper_map[closest_idx] = gripper_angle
-                if self.verbose_logging:
-                    print(f"Gripper {gripper_angle}° at output waypoint {closest_idx} (t={waypoint_times[closest_idx]:.3f}s)")
-        
+
+        if gripper_s_map and not have_param and self.verbose_logging:
+            print("Warning: TOPPRA parameterization unavailable; "
+                  "falling back to nearest-configuration gripper timing.")
+
+        for s_action, gripper_angle in gripper_s_map.items():
+            if have_param:
+                # Deterministic: invert the monotonic s(t) for the exact time.
+                t_opt = float(np.interp(s_action, s_grid, t_grid))
+            else:
+                # Fallback (older/other TOPPRA): nearest configuration in time.
+                target_position = path.eval(s_action)[:3]
+                distances = np.linalg.norm(q_dense[:, :3] - target_position, axis=1)
+                t_opt = float(t_dense[int(np.argmin(distances))])
+
+            # Map to the nearest output waypoint (for the Arduino command)
+            out_idx = int(np.argmin(np.abs(waypoint_times - t_opt)))
+            output_gripper_map[out_idx] = gripper_angle
+
+            # Mark the dense trajectory too (used by plot_results)
+            dense_idx = min(int(np.searchsorted(t_dense, t_opt)), len(t_dense) - 1)
+            gripper_dense[dense_idx] = gripper_angle
+
+            if self.verbose_logging:
+                print(f"Gripper {gripper_angle}° at s={s_action:.4f} -> t={t_opt:.3f}s "
+                      f"-> output waypoint {out_idx} (t={waypoint_times[out_idx]:.3f}s)")
+
         # Generate output waypoints
         self.planned_waypoints = []
         for i, t in enumerate(waypoint_times):

@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel, QPushButton
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkRenderingCore import vtkRenderer, vtkActor, vtkPolyDataMapper
@@ -339,7 +339,17 @@ class RobotVTKWidget(QWidget):
         self.user_x = 0
         self.user_y = 0
         self.user_z = 0
-    
+
+        # Render throttling: the robot streams joint feedback faster than a
+        # (software) OpenGL render can keep up. Coalesce render requests to at
+        # most ~30 FPS so high-rate set_*/set_pose calls during a move don't
+        # flood the Qt event loop with expensive Render() calls.
+        self._render_pending = False
+        self._render_timer = QTimer(self)
+        self._render_timer.setSingleShot(True)
+        self._render_timer.setInterval(33)  # ~30 FPS cap
+        self._render_timer.timeout.connect(self._on_render_timer)
+
     def load_models(self, models_dir):
         """Load robot STEP models"""
         support_file = models_dir / "support_nacelle.STEP"
@@ -447,7 +457,27 @@ class RobotVTKWidget(QWidget):
     def set_gripper(self, angle):
         self.gripper_angle = angle
         self.update_transforms()
-    
+
+    def set_pose(self, theta=None, alpha=None, beta=None, mu=None, gripper=None):
+        """Set several joint angles at once and rebuild/render only once.
+
+        Avoids the 5x redundant transform rebuilds + renders that result from
+        calling set_theta/set_alpha/set_beta/set_mu/set_gripper individually
+        (e.g. on every Arduino feedback line). Pass None to leave a value
+        unchanged.
+        """
+        if theta is not None:
+            self.theta_angle = theta
+        if alpha is not None:
+            self.alpha_angle = alpha
+        if beta is not None:
+            self.beta_angle = beta
+        if mu is not None:
+            self.mu_angle = mu
+        if gripper is not None:
+            self.gripper_angle = gripper
+        self.update_transforms()
+
     def set_user_x(self, value):
         self.user_x = value
         self.update_transforms()
@@ -642,8 +672,31 @@ class RobotVTKWidget(QWidget):
             
             self.finger_left.actor.SetUserTransform(transform)
 
+        # Throttled render (see _request_render) instead of an immediate Render()
+        # on every joint update.
+        self._request_render()
+
+    def _request_render(self):
+        """Render now if we're under the FPS cap, otherwise coalesce into the
+        next throttle tick. Always converges to the latest pose."""
+        if self._render_timer.isActive():
+            # A render happened recently; mark dirty and let the timer flush it.
+            self._render_pending = True
+        else:
+            self._do_render()
+            self._render_timer.start()  # block immediate re-renders for one interval
+
+    def _do_render(self):
+        self._render_pending = False
         self.vtk_widget.GetRenderWindow().Render()
-    
+
+    def _on_render_timer(self):
+        # If updates arrived during the throttle window, render the latest now
+        # and keep the cadence going; otherwise go idle until the next request.
+        if self._render_pending:
+            self._do_render()
+            self._render_timer.start()
+
     def set_fixed_camera(self):
         """Set camera to fixed position and orientation"""
         camera = self.renderer.GetActiveCamera()
