@@ -1,201 +1,133 @@
 # Chess-Playing Robot Arm
-This repository contains work related to my third engineering project at EMINES.
 
-It involves a robotic arm control and GUI with an integrated chess pipeline. The project combines a PySide6 desktop app, computer vision for chess board detection, a lightweight CNN classifier for chessboard squares, Stockfish move generation, and time-optimal trajectory planning that drives Arduino firmware.
+A robotic arm that plays physical chess, built as my third-year engineering project at EMINES. A camera reads the board, Stockfish picks the move, a time-optimal trajectory is planned, and Arduino firmware drives the arm to make the move — all controlled from a PySide6 desktop app.
 
 ![Robot arm](images/robot.png)
 ![GUI Manip](images/gui_manip.png)
 
-## Highlights
+## This work includes
 
-- GUI application for robot visualization and control.
-- Chess board detection using ArUco markers and hand-presence gating.
-- CNN-based per-square classification (black, empty, white).
-- Move validation with python-chess and move generation with Stockfish.
-- Trajectory planning and Arduino command generation for real hardware.
+<details>
+<summary><b>Arduino firmware</b> — real-time arm control (PlatformIO, megaatmega2560)</summary>
 
-## Main repository elements
+Reads a serial waypoint protocol, executes interpolated trajectories, and streams telemetry back.
 
-- [GUI/](GUI/)
-  - Main desktop app entrypoint: [GUI/main.py](GUI/main.py)
-  - Kinematics and planning: [GUI/kinematics.py](GUI/kinematics.py), [GUI/planner.py](GUI/planner.py)
-  - Real-time 3D rendering: [GUI/ThreeD.py](GUI/ThreeD.py)
-  - Chess subsystem: [GUI/Chess/](GUI/Chess/)
-- [AI/](AI/)
-  - Training data: [AI/data/](AI/data/)
-  - Training script: [AI/train/train.py](AI/train/train.py)
-  - Inference helpers: [AI/Inference/](AI/Inference/)
-- [Arduino/RoboticArm/src/](Arduino/RoboticArm/)
-    - [main.cpp](Arduino/RoboticArm/src/main.cpp) - Firmware entrypoint; reads serial, runs trajectories, and streams feedback.
-    - [serial_commands.cpp](Arduino/RoboticArm/src/serial_commands.cpp) - Serial protocol parsing and command dispatch.
-    - [trajectory.cpp](Arduino/RoboticArm/src/trajectory.cpp) - Trajectory scheduling, interpolation, and waypoint execution.
-    - [cartesian.cpp](Arduino/RoboticArm/src/cartesian.cpp) - Cartesian line and circle path generators.
-    - [kinematics.cpp](Arduino/RoboticArm/src/kinematics.cpp) - Inverse/direct kinematics and mu/gamma helpers.
-    - [control.cpp](Arduino/RoboticArm/src/control.cpp) - Hardware Stepper control and DXL gripper actuation.
-    - [feedback.cpp](Arduino/RoboticArm/src/feedback.cpp) - Telemetry output for joint and gripper state.
-    - [reset.cpp](Arduino/RoboticArm/src/reset.cpp) - Homing and reset routine using limit switches.
-    - [config.cpp](Arduino/RoboticArm/src/config.cpp) - Hardware configuration and runtime state.
+- [main.cpp](Arduino/RoboticArm/src/main.cpp) — entrypoint: serial loop, trajectory execution, feedback
+- [serial_commands.cpp](Arduino/RoboticArm/src/serial_commands.cpp) — protocol parsing & dispatch
+- [trajectory.cpp](Arduino/RoboticArm/src/trajectory.cpp) — waypoint scheduling & interpolation
+- [cartesian.cpp](Arduino/RoboticArm/src/cartesian.cpp) — line & circle path generators
+- [kinematics.cpp](Arduino/RoboticArm/src/kinematics.cpp) — direct/inverse kinematics, mu/gamma helpers
+- [control.cpp](Arduino/RoboticArm/src/control.cpp) — stepper control & Dynamixel gripper
+- [feedback.cpp](Arduino/RoboticArm/src/feedback.cpp) · [reset.cpp](Arduino/RoboticArm/src/reset.cpp) · [config.cpp](Arduino/RoboticArm/src/config.cpp) — telemetry, homing, hardware config
 
-Here is a diagram simplifying the control firmware architecture of the robot:
-(change github theme if invisible)
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="images/diagram_light.png">
-  <img alt="Code diagram" src="images/diagram_dark.png">
-</picture>
+![Firmware architecture](images/diagram_dark.png)
 
-## GUI menus
+</details>
 
-- Home: project overview and quick access to features.
-- Manip: robot manual control with real-time 3D visualization.
-- Program: save and execute waypoint lists.
-- Chess AI: vision + engine pipeline and robot move execution.
-- Drawing interface: draw paths for the arm to follow.
+<details>
+<summary><b>CNN classification & position prediction</b></summary>
 
-## Chess pipeline
+- **Square classifier** — labels each of the 64 squares as `black` / `empty` / `white`.
+- **Position regression** — locates the true piece centre within its square, so the arm grabs the actual piece instead of the geometric centre.
 
-1. **Capture and rectify**: ArUco markers define board corners, then the board is perspective-corrected into inner and outer crops. See [GUI/Chess/board_detector.py](GUI/Chess/board_detector.py).
-2. **Hand detection**: Canny edges on the border stripe gate processing while a hand is present. See [GUI/Chess/board_detector.py](GUI/Chess/board_detector.py).
-3. **Square classification**: The inner crop is split into 64 squares and classified as black, empty, or white by a CNN. See [GUI/Chess/board_detector.py](GUI/Chess/board_detector.py).
-4. **Move validation**: Detected color changes are matched against legal moves using python-chess. See [GUI/Chess/chess_manager.py](GUI/Chess/chess_manager.py).
-5. **Engine move**: Stockfish generates the best move for the robot side. See [GUI/Chess/chess_engine.py](GUI/Chess/chess_engine.py).
-6. **Trajectory generation**: The move is converted into a Cartesian path and then time-optimized into joint waypoints. See [GUI/planner.py](GUI/planner.py).
-7. **Firmware execution**: Waypoints are serialized into Arduino commands and executed by the arm firmware. See [Arduino/RoboticArm/](Arduino/RoboticArm/).
+See [GUI/Chess/board_detector.py](GUI/Chess/board_detector.py) and [AI/Inference/](AI/Inference/).
 
-## Chess pipeline diagram
+</details>
 
-```mermaid
-flowchart TD
-  A[Camera / video stream] --> B[ArUco detection + perspective warp]
-  B --> C[Hand detection gate]
-  C --> D[Split board into 64 squares]
-  D --> E[CNN classify: black / empty / white]
-  E --> F[Move validation with python-chess]
-  F --> G[Stockfish move selection]
-  G --> H[Trajectory planning]
-  H --> I[Arduino execution]
-```
+<details>
+<summary><b>Training scripts</b></summary>
 
-## Setup
+- [AI/train/train_classification.py](AI/train/train_classification.py) — square classifier
+- [AI/train/train_position.py](AI/train/train_position.py) — piece-centre regressor
+- [AI/label_tool.py](AI/label_tool.py) — labeling helper
 
-1. Create and activate a Python environment.
-2. Install dependencies:
+</details>
+
+<details>
+<summary><b>Trajectory optimization</b></summary>
+
+Chess moves become Cartesian pick-and-place paths, then TOPPRA retimes them into time-optimal joint waypoints that respect motor speed/acceleration limits, with deterministic gripper-action timing. See [GUI/planner.py](GUI/planner.py) and [GUI/kinematics.py](GUI/kinematics.py).
+
+</details>
+
+<details>
+<summary><b>Desktop GUI</b> — PySide6 app with 3D view, control, drawing & chess</summary>
+
+Real-time 3D visualization ([GUI/ThreeD.py](GUI/ThreeD.py)) and full robot control from [GUI/main.py](GUI/main.py).
+
+**Menus**
+- **Home** — project overview and serial connection menu.
+- **Manip** — manual control with live 3D visualization.
+- **Program** — save and execute waypoint lists.
+- **Chess AI** — vision + engine pipeline and robot move execution ([GUI/Chess/](GUI/Chess/)).
+- **Drawing** — draw paths for the arm to follow ([GUI/Draw/](GUI/Draw/)).
+
+</details>
+
+## How to run
+
+1. Download the GUI executable for your OS (Windows / Linux) from the latest release and run it.
+2. Flash the firmware (`.ino`) from the same release to the Arduino.
+
+## Build & run from source
+
+<details>
+<summary><b>Run from source</b></summary>
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/SirajHabsaia/RobotArm.git && cd RobotArm
 ```
 
-3. Stockfish setup:
-  - [Download a Stockfish binary](https://github.com/official-stockfish/Stockfish/releases/tag/sf_18)
-  - Update the executable path used in [GUI/Chess/chess_engine.py](GUI/Chess/chess_engine.py).
+**Firmware** — open [Arduino/RoboticArm/platformio.ini](Arduino/RoboticArm/platformio.ini) in PlatformIO, then build & upload (`megaatmega2560`).
 
-If you plan to use CUDA for training or inference, install a torch build that matches your GPU and CUDA version.
+**GUI**
+1. Create a virtual environment and install deps:
+   ```bash
+   python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt # (make sure to have build tools for TOPPRA)
+   ```
+2. Download the assets archive from the latest release and merge it into `GUI/` (3D models, CNN weights, sounds).
+3. Download the [Stockfish binary](https://github.com/official-stockfish/Stockfish/releases) for your OS into `.stockfish/`. Keep the expected filename (`stockfish-ubuntu-x86-64` on Linux, `stockfish-windows-x86-64.exe` on Windows) or update the path in [GUI/gui.py](GUI/gui.py).
+4. Run it:
+   ```bash
+   python GUI/main.py
+   ```
 
-## Run the GUI
+</details>
+
+<details>
+<summary><b>Train the models</b></summary>
+
+Download the dataset from the latest release into `AI/`, then:
 
 ```bash
-python GUI/main.py
+python AI/train/train_classification.py   # square classifier  -> model.pth
+python AI/train/train_position.py         # piece-centre regressor -> model_position.pth
+python AI/export_onnx.py                   # export both to ONNX for the GUI
 ```
 
-The GUI loads configuration and assets from [GUI/](GUI/).
+The GUI runs inference with **onnxruntime** (not PyTorch), so after retraining
+you must re-run `AI/export_onnx.py` to refresh `GUI/Chess/model.onnx` and
+`GUI/Chess/model_position.onnx`. PyTorch is only needed for training/export.
 
-## Run the chess board detector (standalone)
+</details>
+
+<details>
+<summary><b>Build the GUI executable</b></summary>
+
+PyInstaller produces a portable "onedir" bundle in `dist/RobotArmGUI/`:
 
 ```bash
-python GUI/Chess/main.py
+pyinstaller RobotArmGUI.spec      # any platform
+./build_linux.sh                  # Linux convenience wrapper
 ```
 
-Input mode defaults to IP camera in [GUI/Chess/config.py](GUI/Chess/config.py). Update `mode`, `camera_index`, or `camera_ip` as needed.
-
-## Run CNN inference (single image)
-
-From [AI/Inference/](AI/Inference/), place `image.jpg` or `image.png` in the folder, then:
+Optional — wrap the Linux bundle into a single distributable file:
 
 ```bash
-python AI/Inference/inference.py
+./build_appimage_linux.sh         # -> dist/RobotArmGUI-x86_64.AppImage
 ```
 
-For a drag-and-drop GUI:
+On a minimal Linux target you may also need `libxcb-cursor0` (`sudo apt install libxcb-cursor0`).
 
-```bash
-python AI/Inference/gui_inference.py
-```
-
-## Train the CNN
-
-Organize images with `torchvision.datasets.ImageFolder` layout:
-
-```
-AI/data/
-  train/
-    black/
-    empty/
-    white/
-  test/
-    black/
-    empty/
-    white/
-```
-
-Then run:
-
-```bash
-python AI/train/train.py
-```
-
-The training script writes `best_model.pth` in [AI/train/](AI/train/).
-
-## Arduino firmware (PlatformIO)
-
-- Robotic arm firmware: open [Arduino/RoboticArm/](Arduino/RoboticArm/) in PlatformIO and build/upload for `megaatmega2560`.
-- Mini arm firmware: open [Arduino/MiniArm/](Arduino/MiniArm/) in PlatformIO and build/upload for `megaatmega2560` (env name is `uno`).
-
-## Packaging the GUI
-
-A cross-platform PyInstaller spec is provided. It produces an "onedir" bundle:
-one launcher executable plus an `_internal/` folder containing all packages and
-assets (3D models, Stockfish binary, CNN weights, chess piece images).
-
-On Linux:
-
-```bash
-./build_linux.sh
-```
-
-Or directly, on any platform:
-
-```bash
-pyinstaller RobotArmGUI.spec
-```
-
-The portable app is written to `dist/RobotArmGUI/`. Run it with
-`./dist/RobotArmGUI/RobotArmGUI`, or zip the whole `dist/RobotArmGUI/` folder to
-distribute it. The app forces the `xcb` Qt platform by default, so it works on
-both X11 and Wayland desktops.
-
-On a minimal target machine you may also need the system X11 client library
-`libxcb-cursor0` (`sudo apt install libxcb-cursor0`).
-
-### Single-file AppImage (Linux)
-
-To wrap the bundle into one distributable file:
-
-```bash
-./build_appimage_linux.sh
-```
-
-This produces `dist/RobotArmGUI-x86_64.AppImage` — a single executable that runs
-on any x86-64 Linux machine:
-
-```bash
-chmod +x RobotArmGUI-x86_64.AppImage
-./RobotArmGUI-x86_64.AppImage
-```
-
-It uses the `uruntime` AppImage runtime, which mounts via FUSE when available and
-automatically falls back to extract-and-run on hosts without `libfuse2` — so no
-extra system packages are required.
-
-## Notes
-
-- The chess engine uses Stockfish via python-chess. Provide a Stockfish binary and ensure the path used in [GUI/Chess/chess_engine.py](GUI/Chess/chess_engine.py) is valid for your system.
-- If camera detection is unreliable, tune parameters in [GUI/Chess/config.py](GUI/Chess/config.py).
+</details>

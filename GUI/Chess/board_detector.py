@@ -23,15 +23,19 @@ Usage:
 
 import cv2
 import numpy as np
-import torch
-import torch.nn as nn
-from torchvision import transforms
-from PIL import Image
+import onnxruntime as ort
 from typing import Optional, Dict, Any, Tuple, List
 import time
 import os
 from functools import wraps
 from collections import defaultdict
+
+
+def _softmax(x: np.ndarray, axis: int = 1) -> np.ndarray:
+    """Numerically stable softmax over the given axis."""
+    x = x - np.max(x, axis=axis, keepdims=True)
+    e = np.exp(x)
+    return e / np.sum(e, axis=axis, keepdims=True)
 
 try:
     # When imported as part of GUI package
@@ -41,84 +45,13 @@ except ImportError:
     from config import get_aruco_detector, BoardAnalyzerConfig
 
 
-# ======================== CNN MODEL DEFINITION ========================
-
-class ChessCNN(nn.Module):
-    """Lightweight CNN model for classifying chess squares (32x32 input)."""
-    def __init__(self):
-        super().__init__()
-        self.features = nn.Sequential(
-            # Layer 1: 32x32 -> 16x16
-            nn.Conv2d(3, 8, 3, padding=1),
-            nn.BatchNorm2d(8),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-
-            # Layer 2: 16x16 -> 8x8
-            nn.Conv2d(8, 16, 3, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-
-            # Layer 3: 8x8 -> 4x4
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-        )
-
-        # Classifier: 512 -> 32 -> 3
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(32 * 4 * 4, 32),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(32, 3)
-        )
-
-    def forward(self, x):
-        return self.classifier(self.features(x))
-
-
-class PositionCNN(nn.Module):
-    """Regression CNN that locates the piece centre within a 32x32 square crop.
-
-    Output: 2 sigmoid values in [0, 1] -> (x, y) as fractions of the square,
-    bottom-left origin (x left->right, y bottom->top). Must match PositionCNN in
-    AI/train/train_position.py and AI/Inference/inference_position.py.
-    """
-    def __init__(self):
-        super().__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 8, 3, padding=1),
-            nn.BatchNorm2d(8),
-            nn.ReLU(),
-            nn.MaxPool2d(2),                  # 32 -> 16
-
-            nn.Conv2d(8, 16, 3, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(2),                  # 16 -> 8
-
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2),                  # 8 -> 4
-        )
-        self.head = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(32 * 4 * 4, 64),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(64, 2),
-            nn.Sigmoid(),                     # outputs in [0, 1]
-        )
-
-    def forward(self, x):
-        return self.head(self.features(x))
-
-
 # ======================== BOARD DETECTOR ========================
+#
+# Inference uses ONNX Runtime (onnxruntime) on the exported models:
+#   GUI/Chess/model.onnx           - square classifier (black/empty/white logits)
+#   GUI/Chess/model_position.onnx  - piece-centre regressor (x, y in [0,1])
+# Both take input (N, 3, 32, 32) float32 in [0,1], RGB. Regenerate them from the
+# trained .pth weights with: python AI/export_onnx.py
 
 def performance_metric(func):
     """
@@ -225,44 +158,50 @@ class BoardDetector:
         self.cooldown_counter = 0  # Counts down from cooldown_frames to 0
         self.hand_was_detected = False  # Track if hand was detected in previous frame
         
-    @performance_metric
-    def _init_model(self):
-        """Initialize the CNN model for piece classification."""
-        model_path = self.config.model_path
+    @staticmethod
+    def _onnx_path_for(model_path: str) -> str:
+        """Resolve the .onnx path next to this module for a configured model name.
+
+        Accepts a .pth or .onnx name; always returns an absolute .onnx path.
+        """
+        if model_path.endswith(".pth"):
+            model_path = model_path[:-4] + ".onnx"
+        elif not model_path.endswith(".onnx"):
+            model_path = model_path + ".onnx"
         if not os.path.isabs(model_path):
             model_path = os.path.join(os.path.dirname(__file__), model_path)
-        
-        self.model = ChessCNN()
-        
+        return model_path
+
+    @performance_metric
+    def _init_model(self):
+        """Load the ONNX inference sessions for classification and localization."""
+        providers = ["CPUExecutionProvider"]
+
+        # Square classifier (required)
+        model_path = self._onnx_path_for(self.config.model_path)
         if os.path.exists(model_path):
-            self.model.load_state_dict(torch.load(model_path, map_location=self.config.device))
+            self.session = ort.InferenceSession(model_path, providers=providers)
+            self.input_name = self.session.get_inputs()[0].name
+            print(f"[BoardDetector] Classifier model loaded: {model_path}")
         else:
-            print(f"Warning: Model file '{model_path}' not found. Using untrained model.")
-        
-        self.model.eval()
+            self.session = None
+            self.input_name = None
+            print(f"Warning: Model file '{model_path}' not found. Classification disabled.")
 
-        # Image preprocessing (32x32 for new lightweight model)
-        self.transform = transforms.Compose([
-            transforms.Resize((32, 32)),
-            transforms.ToTensor()
-        ])
+        # Position regressor (optional): if missing, the robot falls back to aiming
+        # at the geometric square centre.
+        position_model_path = self._onnx_path_for(
+            getattr(self.config, "position_model_path", "model_position.pth"))
 
-        # Position regression model (locates the piece centre within a square).
-        # Optional: if the weights are missing, piece localization is disabled and
-        # the robot falls back to aiming at the geometric square centre.
-        position_model_path = getattr(self.config, "position_model_path", "model_position.pth")
-        if not os.path.isabs(position_model_path):
-            position_model_path = os.path.join(os.path.dirname(__file__), position_model_path)
-
-        self.position_model = None
+        self.position_session = None
+        self.position_input_name = None
         if os.path.exists(position_model_path):
             try:
-                self.position_model = PositionCNN()
-                self.position_model.load_state_dict(torch.load(position_model_path, map_location=self.config.device))
-                self.position_model.eval()
+                self.position_session = ort.InferenceSession(position_model_path, providers=providers)
+                self.position_input_name = self.position_session.get_inputs()[0].name
                 print(f"[BoardDetector] Position model loaded: {position_model_path}")
             except Exception as e:
-                self.position_model = None
+                self.position_session = None
                 print(f"[BoardDetector] Warning: failed to load position model ({e}); using square centres.")
         else:
             print(f"[BoardDetector] Position model '{position_model_path}' not found; using square centres.")
@@ -584,25 +523,18 @@ class BoardDetector:
             - class_label: One of the class names (e.g., "empty", "white", "black")
             - confidence: Confidence score (0-1)
         """
-        # Resize to model input size (32x32)
+        # Resize to model input size (32x32), BGR->RGB, CHW, [0,1], batch of 1
         square_resized = cv2.resize(square_image, (32, 32))
-        
-        # Convert BGR to RGB
         rgb_image = cv2.cvtColor(square_resized, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(rgb_image)
-        
-        # Apply transforms
-        input_tensor = self.transform(pil_image).unsqueeze(0)
-        
+        inp = rgb_image.transpose(2, 0, 1).astype(np.float32)[None] / 255.0  # (1,3,32,32)
+
         # Run inference
-        with torch.no_grad():
-            output = self.model(input_tensor)
-            probabilities = torch.softmax(output, dim=1)
-            confidence, predicted_idx = torch.max(probabilities, 1)
-            
-            confidence = confidence.item()
-            predicted_class = self.config.class_names[predicted_idx.item()]
-        
+        logits = self.session.run(None, {self.input_name: inp})[0]
+        probs = _softmax(logits, axis=1)[0]
+        predicted_idx = int(np.argmax(probs))
+        confidence = float(probs[predicted_idx])
+        predicted_class = self.config.class_names[predicted_idx]
+
         return predicted_class, confidence
     
     @performance_metric
@@ -647,39 +579,37 @@ class BoardDetector:
         # Step 2: BGR→RGB conversion (numpy, very fast)
         board_rgb = cv2.cvtColor(board_resized, cv2.COLOR_BGR2RGB)
         
-        # Step 3: Convert entire board to tensor at once (HWC → CHW format, normalize to [0,1])
-        board_tensor = torch.from_numpy(board_rgb).float().permute(2, 0, 1) / 255.0
+        # Step 3: HWC -> CHW, normalize to [0,1] (numpy, float32)
+        board_chw = board_rgb.transpose(2, 0, 1).astype(np.float32) / 255.0
         # Shape: (3, 256, 256)
-        
-        # Step 4: Extract 64 squares via tensor slicing (zero-copy views)
-        batch_tensors = []
+
+        # Step 4: Extract 64 squares via array slicing
+        batch_squares = []
         for row in range(8):
             for col in range(8):
                 y1 = row * 32
                 x1 = col * 32
-                # Extract 32x32 square: (3, 32, 32)
-                square_tensor = board_tensor[:, y1:y1+32, x1:x1+32]
-                batch_tensors.append(square_tensor)
-        
-        # Step 5: Stack into batch (64, 3, 32, 32)
-        batch_input = torch.stack(batch_tensors)
+                batch_squares.append(board_chw[:, y1:y1 + 32, x1:x1 + 32])
 
-        # Cache the board tensor so piece-centre localization can be run on demand
+        # Step 5: Stack into batch (64, 3, 32, 32)
+        batch_input = np.stack(batch_squares).astype(np.float32)
+
+        # Cache the board array so piece-centre localization can be run on demand
         # later (for just the squares a move touches) without re-warping the board.
-        self._last_board_tensor = board_tensor
+        self._last_board_tensor = board_chw
 
         # Step 6: Run batch inference ONCE (classification only)
-        with torch.no_grad():
-            batch_output = self.model(batch_input)
-            batch_probabilities = torch.softmax(batch_output, dim=1)
-            confidences, predicted_indices = torch.max(batch_probabilities, 1)
+        batch_logits = self.session.run(None, {self.input_name: batch_input})[0]
+        batch_probabilities = _softmax(batch_logits, axis=1)
+        predicted_indices = np.argmax(batch_probabilities, axis=1)
+        confidences = batch_probabilities[np.arange(len(predicted_indices)), predicted_indices]
 
         # Step 7: Extract results and draw visualizations
         idx = 0
         for row in range(8):
             for col in range(8):
-                confidence = confidences[idx].item()
-                class_label = self.config.class_names[predicted_indices[idx].item()]
+                confidence = float(confidences[idx])
+                class_label = self.config.class_names[int(predicted_indices[idx])]
 
                 board_state[row][col] = (class_label, confidence)
 
@@ -714,7 +644,7 @@ class BoardDetector:
         if self.dev_mode:
             occupied = [(r, c) for r in range(8) for c in range(8)
                         if board_state[r][c][0] != "empty"]
-            preds = self._run_position_model(occupied, board_tensor)
+            preds = self._run_position_model(occupied, board_chw)
             pos_grid = [[None for _ in range(8)] for _ in range(8)]
             for (r, c), xy in preds.items():
                 pos_grid[r][c] = xy
@@ -737,7 +667,7 @@ class BoardDetector:
             ``{(row, col): (x_pct, y_pct)}`` (bottom-left origin, percent).
             Empty dict if the model or board tensor is unavailable.
         """
-        if self.position_model is None:
+        if self.position_session is None:
             return {}
         if board_tensor is None:
             board_tensor = self._last_board_tensor
@@ -753,9 +683,9 @@ class BoardDetector:
         if not crops:
             return {}
 
-        with torch.no_grad():
-            out = (self.position_model(torch.stack(crops)) * 100.0).cpu()
-        return {rc: (out[i, 0].item(), out[i, 1].item()) for i, rc in enumerate(valid)}
+        batch = np.stack(crops).astype(np.float32)
+        out = self.position_session.run(None, {self.position_input_name: batch})[0] * 100.0
+        return {rc: (float(out[i, 0]), float(out[i, 1])) for i, rc in enumerate(valid)}
 
     def predict_square_positions(self, square_names):
         """Predict piece centres for the given square names (e.g. ``['e2', 'h1']``).

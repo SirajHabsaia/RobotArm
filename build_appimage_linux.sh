@@ -52,9 +52,13 @@ Terminal=false
 EOF
 
 # 3. Build the AppImage. APPIMAGE_EXTRACT_AND_RUN lets appimagetool itself run
-#    without libfuse2 on this build host.
+#    without libfuse2 on this build host. Use max-level zstd with a large block
+#    size to minimize the output file size.
 rm -f dist/RobotArmGUI-x86_64.AppImage
 ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" \
+    --comp zstd \
+    --mksquashfs-opt -Xcompression-level --mksquashfs-opt 22 \
+    --mksquashfs-opt -b --mksquashfs-opt 1M \
     --runtime-file "$URUNTIME" "$APPDIR" dist/RobotArmGUI-x86_64.AppImage
 
 echo
