@@ -122,11 +122,18 @@ pyinstaller RobotArmGUI.spec      # any platform
 ./build_linux.sh                  # Linux convenience wrapper
 ```
 
-Optional — wrap the Linux bundle into a single distributable file:
+Single-file distributable (the whole app as one file):
 
 ```bash
-./build_appimage_linux.sh         # -> dist/RobotArmGUI-x86_64.AppImage
+./build_appimage_linux.sh         # Linux:   -> dist/RobotArmGUI-x86_64.AppImage
 ```
+
+```powershell
+.\build_windows.ps1               # Windows: -> dist\RobotArmGUI.exe
+```
+
+Both single-file builds share the same size-optimized `RobotArmGUI.spec`
+(`build_windows.ps1` just sets `ONEFILE=1` for PyInstaller's onefile mode).
 
 On a minimal Linux target you may also need `libxcb-cursor0` (`sudo apt install libxcb-cursor0`).
 

@@ -12,7 +12,18 @@
 #     onnxruntime ...) — typically cuts the .so bulk substantially.
 #   * Drop Qt translation catalogs (.qm) — not used.
 import os
+import sys
 from PyInstaller.utils.hooks import collect_submodules, collect_all
+
+# ONEFILE=1 -> a single self-extracting executable (the Windows analogue of the
+# Linux AppImage: one file, extracts to a temp dir at launch). Default (unset)
+# -> the portable onedir bundle in dist/RobotArmGUI/ used by build_linux.sh.
+ONEFILE = os.environ.get('ONEFILE', '') == '1'
+
+# Stripping debug symbols meaningfully shrinks the ELF/.so payload on Linux, but
+# on Windows it needs GNU binutils (strip.exe) on PATH and does little for PE
+# files, so skip it there.
+STRIP = sys.platform != 'win32'
 
 datas = [
     ('GUI/params.json', '.'),
@@ -126,29 +137,53 @@ a.binaries = _prune(a.binaries)
 
 pyz = PYZ(a.pure)
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name='RobotArmGUI',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=True,
-    upx=False,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=True,
-    upx=False,
-    upx_exclude=[],
-    name='RobotArmGUI',
-)
+if ONEFILE:
+    # Single self-contained executable: dist/RobotArmGUI(.exe). All binaries and
+    # data files are packed into the EXE and extracted to a temp dir at launch.
+    exe = EXE(
+        pyz,
+        a.scripts,
+        a.binaries,
+        a.datas,
+        [],
+        name='RobotArmGUI',
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=STRIP,
+        upx=False,
+        runtime_tmpdir=None,
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+    )
+else:
+    # Portable onedir bundle: dist/RobotArmGUI/ (launcher + _internal/).
+    exe = EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name='RobotArmGUI',
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=STRIP,
+        upx=False,
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+    )
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.datas,
+        strip=STRIP,
+        upx=False,
+        upx_exclude=[],
+        name='RobotArmGUI',
+    )
