@@ -44,7 +44,6 @@ htmlcov/
 .history/
 lib/
 test/
-platformio.ini
 Arduino/**/*.gitignore
 
 # cad for gui
