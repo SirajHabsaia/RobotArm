@@ -1,6 +1,6 @@
 # Chess-Playing Robot Arm
 
-A robotic arm that plays physical chess, built as my third-year engineering project at EMINES. A camera reads the board, Stockfish picks the move, a time-optimal trajectory is planned, and Arduino firmware drives the arm to make the move — all controlled from a PySide6 desktop app.
+A robotic arm that plays physical chess, built as my third engineering project at EMINES. A camera reads the board, Stockfish picks the move, a time-optimal trajectory is planned, and Arduino firmware drives the arm to make the move — all controlled from a PySide6 desktop app.
 
 ![Robot arm](images/robot.png)
 ![GUI Manip](images/gui_manip.png)
